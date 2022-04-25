@@ -434,7 +434,7 @@ sample_and_NLL$prob = (exp(-sample_and_NLL$rNLL))
 
 set.seed(0)
 resample = sample(1:nrow(sample_and_NLL), 2.5E4, replace=TRUE, prob=sample_and_NLL$prob)
-saveRDS(resample,"resample.RDS")
+# saveRDS(resample,"resample.RDS")
 resample = readRDS("resample.RDS")
 index= unique(resample)
 
@@ -538,7 +538,24 @@ prevalence_by_arm = function(par, dataset){
 
 counterfactual_simulation = function(i){
   print(which(unique(index)==i))
-  prev_mat = prevalence_by_arm(par=unlist(sample_and_NLL[i,1:16]), data=data)
+  prev_mat = prevalence_by_arm(par=unlist(sample_and_NLL[i,1:16]), dataset=data)
+
+ #By wave, prevalence at baseline, midline, endline, midline/endline average
+  prevalences = c(prev_mat[1,1],prev_mat[1,2],prev_mat[1,3],prev_mat[1,4],
+                  prev_mat[2,1],prev_mat[2,2],prev_mat[2,3],prev_mat[2,4],
+                  prev_mat[3,1],prev_mat[3,2],prev_mat[3,3],prev_mat[3,4],
+                  prev_mat[4,1],prev_mat[4,2],prev_mat[4,3],prev_mat[4,4],
+                  prev_mat[5,1],prev_mat[5,2],prev_mat[5,3],prev_mat[5,4],
+                  prev_mat[6,1],prev_mat[6,2],prev_mat[6,3],prev_mat[6,4],
+                  prev_mat[7,1],prev_mat[7,2],prev_mat[7,3],prev_mat[7,4],
+                  prev_mat[1,5],prev_mat[1,6],prev_mat[1,7],prev_mat[1,8],
+                  prev_mat[2,5],prev_mat[2,6],prev_mat[2,7],prev_mat[2,8],
+                  prev_mat[3,5],prev_mat[3,6],prev_mat[3,7],prev_mat[3,8],
+                  prev_mat[4,5],prev_mat[4,6],prev_mat[4,7],prev_mat[4,8],
+                  prev_mat[5,5],prev_mat[5,6],prev_mat[5,7],prev_mat[5,8],
+                  prev_mat[6,5],prev_mat[6,6],prev_mat[6,7],prev_mat[6,8],
+                  prev_mat[7,5],prev_mat[7,6],prev_mat[7,7],prev_mat[7,8])
+  return(prevalences)
 }
 
 index_prevalences = sapply(index,FUN=counterfactual_simulation)
