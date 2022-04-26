@@ -547,14 +547,7 @@ counterfactual_simulation = function(i){
                   prev_mat[4,1],prev_mat[4,2],prev_mat[4,3],prev_mat[4,4],
                   prev_mat[5,1],prev_mat[5,2],prev_mat[5,3],prev_mat[5,4],
                   prev_mat[6,1],prev_mat[6,2],prev_mat[6,3],prev_mat[6,4],
-                  prev_mat[7,1],prev_mat[7,2],prev_mat[7,3],prev_mat[7,4],
-                  prev_mat[1,5],prev_mat[1,6],prev_mat[1,7],prev_mat[1,8],
-                  prev_mat[2,5],prev_mat[2,6],prev_mat[2,7],prev_mat[2,8],
-                  prev_mat[3,5],prev_mat[3,6],prev_mat[3,7],prev_mat[3,8],
-                  prev_mat[4,5],prev_mat[4,6],prev_mat[4,7],prev_mat[4,8],
-                  prev_mat[5,5],prev_mat[5,6],prev_mat[5,7],prev_mat[5,8],
-                  prev_mat[6,5],prev_mat[6,6],prev_mat[6,7],prev_mat[6,8],
-                  prev_mat[7,5],prev_mat[7,6],prev_mat[7,7],prev_mat[7,8])
+                  prev_mat[7,1],prev_mat[7,2],prev_mat[7,3],prev_mat[7,4])
   return(prevalences)
 }
 
