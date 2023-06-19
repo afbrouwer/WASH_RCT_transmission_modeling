@@ -2,7 +2,6 @@ library(SobolSequence)
 library(tictoc)
 library(deSolve)
 library(parallel)
-library(ipw)
 library(ggplot2)
 library(ggpubr)
 
@@ -151,7 +150,8 @@ DN = ggplot( )+
   theme(legend.position = c(0.25,0.4),legend.direction = "vertical",
         legend.text = element_text(size=8))
 
-Fig_adh=ggarrange(DW, DS, DH, DN, ncol=2, nrow=2,hjust=c(-7.5,-7,-7.5,-7), labels="auto",heights=c(1,1,1,1))
+Fig4=ggarrange(DW, DS, DH, DN, ncol=2, nrow=2,hjust=c(-7.5,-7,-7.5,-7), labels="auto",heights=c(1,1,1,1))
+ggsave(file="Fig4.pdf", width = 7, height = 3.5)
 
 
 
@@ -177,6 +177,10 @@ for (j in 0:2){
     cluster_list[[(n_clusters*j+i)]] = list(data[data$svy==j & data$clusterid == clusters[i],],j,clusters[i])
   }
 }
+
+#For faster evaluation
+data$model_prev=NA
+data$NLL=NA
 
 ###################################################################################
 #Differential equation model
@@ -249,7 +253,7 @@ coverage_model = function(t, x, model_par){
   dxdt[12] =  S_NWH * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) -  I_NWH
   dxdt[13] =  S_NWS * phiN * ( R0W * EW * phiW + R0H * EH + R0O * EO) -  I_NWS
   dxdt[14] =  S_NHS * phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_NHS
-  dxdt[15] =  S_WHS * ( R0W * EW + R0H * phiW * EH * phiH  + R0O * EO) -  I_WHS
+  dxdt[15] =  S_WHS * ( R0W * EW * phiW + R0H  * EH * phiH  + R0O * EO) -  I_WHS
   dxdt[16] =  S_NWHS * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) -  I_NWHS
   
   dxdt[17] =   I - S * ( R0W * EW + R0H * EH + R0O * EO) 
@@ -266,7 +270,7 @@ coverage_model = function(t, x, model_par){
   dxdt[28] =   I_NWH - S_NWH * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) 
   dxdt[29] =   I_NWS - S_NWS * phiN * ( R0W * EW * phiW + R0H * EH + R0O * EO) 
   dxdt[30] =   I_NHS - S_NHS * phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) 
-  dxdt[31] =   I_WHS - S_WHS * ( R0W * EW + R0H * phiW * EH * phiH  + R0O * EO) 
+  dxdt[31] =   I_WHS - S_WHS * ( R0W * EW * phiW + R0H  * EH * phiH  + R0O * EO) 
   dxdt[32] =   I_NWHS - S_NWHS * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO)
   
   return(list(dxdt))
@@ -287,22 +291,40 @@ evaluate_cluster_NLL = function(k, par){
   piH = par[6]
   piS = par[7]
   omega = par[8]
-  #Par 9 and 10 are the relative R0 of midline and endline vs baseline
-  #Par 11-16 are the relative R0 of each arm relative to the control arm
-  
-  
+  #Par 9 and 10 are the relative effectiveness of the H and S pre-existing conditions
+  #compared to the intervention
+  #Par 11 and 12 are the relative R0 of midline and endline vs baseline
+  #Par 13-18 are the relative R0 of each arm relative to the control arm
+
   data_cluster_temp = cluster_list[[k]][[1]]
   j = cluster_list[[k]][[2]]
   
   if (nrow(data_cluster_temp)==0){return(0)} else{ #skip the rest if there is no eligible people in this cluster for this survey
     
     #Set arm and svy specific R0 adjustment
+    #Armid
+    # 1: Control
+    # 2: Handwashing
+    # 3: Nutrition
+    # 4: Nutrition + WSH
+    # 5: Sanitation
+    # 6: Water
+    # 7: WSH
+    
     svy_temp = j+1
     arm_temp = data_cluster_temp$armid[1]
+    R0_adj = c(1,par[11:12])[svy_temp]*c(1,par[13:18])[arm_temp]
     
-    R0_adj = c(1,par[9:10])[svy_temp]*c(1,par[11:16])[arm_temp]
+    piH_adj=1
+    piS_adj=1
+    if (j == 0 | is.element(arm_temp,c(1,3,5,6))){
+      piH_adj =par[9]
+    }
+    if (j == 0 | is.element(arm_temp,c(1,2,3,6))){
+      piS_adj = par[10]
+    }
     
-    model_par= c(piN, piW, piH, piS, R0W*R0_adj, R0H*R0_adj, R0O*R0_adj)
+    model_par= c(piN, piW, piH*piH_adj, piS*piS_adj, R0W*R0_adj, R0H*R0_adj, R0O*R0_adj)
     
     #Distribution of WSH groups
     rho_vec = c(sum(data_cluster_temp$adh_cat == "C"),
@@ -322,7 +344,7 @@ evaluate_cluster_NLL = function(k, par){
                 sum(data_cluster_temp$adh_cat == "WHS"),
                 sum(data_cluster_temp$adh_cat == "NWHS"))/length(data_cluster_temp$adh_cat)
     
-    prev= 1E-3 #initial condition prevalence 
+    prev= 0.06 #initial condition prevalence 
     x0 = c(rep(prev,16)*(rho_vec*omega + baseline_adherence_vec*(1-omega)),
            rep(1-prev, 16)*(rho_vec*omega + baseline_adherence_vec*(1-omega)))
     
@@ -396,50 +418,52 @@ compute_NLL_function=function(x){
 
 
 ###################################################################################
+# set.seed(0)
+# nsample = 1E3*50
+# sobol_sample = sobolSequence.points(9,count=nsample)
+# paramlow =  c( 0,  0,  0,    0,     0,   0, 1E-5,0,0)
+# paramhigh = c(1,  1,    1,  1,     1,  1,  0.2,1,1)
+# scaled_sample = t(paramlow + (paramhigh-paramlow)*t(sobol_sample))
+# 
+# n_cores = 120
+# print("starting cluster")
+# cluster = makeCluster(n_cores)
+# clusterExport(cluster,"cluster_list")
+# clusterExport(cluster,"scaled_sample")
+# clusterExport(cluster,"fullLogLikelihood")
+# clusterExport(cluster,"fullLogLikelihood_wrapper")
+# clusterExport(cluster,"evaluate_cluster_NLL")
+# clusterExport(cluster,"baseline_adherence_vec")
+# clusterExport(cluster,"coverage_model")
+# clusterEvalQ(cluster,library("deSolve"))
+# 
+# tic()
+# sample_and_NLL = parSapply(cluster,1:50000,FUN=compute_NLL_function)
+# toc()
+# saveRDS(sample_and_NLL,"sample_and_NLL_iterates.RDS")
+# 
+# stopCluster(cluster)
+# print("stopping cluster")
 
-set.seed(0)
-nsample = 1E3*25
-sobol_sample = sobolSequence.points(7,count=nsample)
-paramlow =  c( 0,  0,  0,    0,     0,   0, 1E-5)
-paramhigh = c(1,  1,    1,  1,     1,  1,  0.1)
-scaled_sample = t(paramlow + (paramhigh-paramlow)*t(sobol_sample))
+# ###################################################################################
+# #Sampling-importance resampling
 
-n_cores = 120
-print("starting cluster")
-cluster = makeCluster(n_cores)
-clusterExport(cluster,"cluster_list")
-clusterExport(cluster,"scaled_sample")
-clusterExport(cluster,"fullLogLikelihood")
-clusterExport(cluster,"fullLogLikelihood_wrapper")
-clusterExport(cluster,"evaluate_cluster_NLL")
-clusterExport(cluster,"baseline_adherence_vec")
-clusterExport(cluster,"coverage_model")
-clusterEvalQ(cluster,library("deSolve"))
+# sample_and_NLL = as.data.frame(t(readRDS("sample_and_NLL_iterates.RDS")))
+# 
+# names(sample_and_NLL)[19]="NLL"
+# sample_and_NLL$rNLL = sample_and_NLL$NLL- min(sample_and_NLL$NLL)
+# sample_and_NLL$prob = (exp(-sample_and_NLL$rNLL))
+# saveRDS(sample_and_NLL,"sample_and_NLL.RDS")
+sample_and_NLL = readRDS("sample_and_NLL.RDS")
 
-tic()
-sample_and_NLL1 = parSapply(cluster,1:25000,FUN=compute_NLL_function)
-toc()
-saveRDS(sample_and_NLL1,"sample_and_NLL_cluster_coverage.RDS")
-
-stopCluster(cluster)
-print("stopping cluster")
-
-###################################################################################
-#Sampling-importance resampling
-
-sample_and_NLL = as.data.frame(t(readRDS("sample_and_NLL_cluster_coverage.RDS")))
-names(sample_and_NLL)[17]="NLL"
-sample_and_NLL$rNLL = sample_and_NLL$NLL- min(sample_and_NLL$NLL)
-sample_and_NLL$prob = (exp(-sample_and_NLL$rNLL))
-
-set.seed(0)
-resample = sample(1:nrow(sample_and_NLL), 2.5E4, replace=TRUE, prob=sample_and_NLL$prob)
+# set.seed(0)
+# resample = sample(1:nrow(sample_and_NLL), 5.0E4, replace=TRUE, prob=sample_and_NLL$prob)
 # saveRDS(resample,"resample.RDS")
 resample = readRDS("resample.RDS")
 index= unique(resample)
 
-###################################################################################
-#Calculate prevalence in each arm at each svy for the given parameters
+# ###################################################################################
+# #Calculate prevalence in each arm at each svy for the given parameters
 
 prevalence_by_arm = function(par, dataset){
   par=abs(par)
@@ -451,22 +475,31 @@ prevalence_by_arm = function(par, dataset){
   piH = par[6]
   piS = par[7]
   omega = par[8]
-  
+
   clusters=unique(dataset$clusterid)
   for (j in 0:2){
     for (i in 1:length(clusters)){
-      
+
       data_cluster_temp = dataset[dataset$svy==j & dataset$clusterid == clusters[i],]
-      
+
       if (nrow(data_cluster_temp)==0){next} #skip the rest if there is no eligible people in this cluster for this survey
-      
+
       #Set arm and svy specific R0 adjustment
       svy_temp = j+1
       arm_temp = data_cluster_temp$armid[1]
-      R0_adj = c(1,par[9:10])[svy_temp]*c(1,par[11:16])[arm_temp]
-      
-      model_par= c(piN, piW, piH, piS, R0W*R0_adj, R0H*R0_adj, R0O*R0_adj)
-      
+      R0_adj = c(1,par[11:12])[svy_temp]*c(1,par[13:18])[arm_temp]
+
+      piH_adj=1
+      piS_adj=1
+      if (j == 0 | is.element(arm_temp,c(1,3,5,6))){
+        piH_adj =par[9]
+      }
+      if (j == 0 | is.element(arm_temp,c(1,2,3,6))){
+        piS_adj = par[10]
+      }
+
+      model_par= c(piN, piW, piH*piH_adj, piS*piS_adj, R0W*R0_adj, R0H*R0_adj, R0O*R0_adj)
+
       #Distribution of WSH groups
       rho_vec = c(sum(data_cluster_temp$adh_cat == "C"),
                   sum(data_cluster_temp$adh_cat == "N"),
@@ -484,22 +517,22 @@ prevalence_by_arm = function(par, dataset){
                   sum(data_cluster_temp$adh_cat == "NHS"),
                   sum(data_cluster_temp$adh_cat == "WHS"),
                   sum(data_cluster_temp$adh_cat == "NWHS"))/length(data_cluster_temp$adh_cat)
-      
-      prev= 0.06 #baseline prevalence 
+
+      prev= 0.06 #baseline prevalence
       x0 = c(rep(prev,16)*(rho_vec*omega + baseline_adherence_vec*(1-omega)),
              rep(1-prev, 16)*(rho_vec*omega + baseline_adherence_vec*(1-omega)))
-      
+
       out_coverage = ode(x0, times = c(0,100), coverage_model, model_par,method="vode")
-      
+
       steady_state = as.vector(pmax(tail(out_coverage[,2:17],1),1E-10))
-      #It is possible for the  simulations go negative as they straddle 0. 
-      #Capping the negative values addresses this issue 
-      
+      #It is possible for the  simulations go negative as they straddle 0.
+      #Capping the negative values addresses this issue
+
       #Calculate prevalence within each group
       steady_state_normalized = steady_state/(omega*rho_vec + (1-omega)*baseline_adherence_vec)
       #Anything that is going to 0, set to very small to avoid dependence on the specific times in the ODE.
       steady_state_normalized[steady_state_normalized<0.005]=1E-10
-      
+
       data_cluster_temp[data_cluster_temp$adh_cat == "C","model_prev"] = steady_state_normalized[1]
       data_cluster_temp[data_cluster_temp$adh_cat == "N","model_prev"] = steady_state_normalized[2]
       data_cluster_temp[data_cluster_temp$adh_cat == "W","model_prev"] = steady_state_normalized[3]
@@ -516,12 +549,12 @@ prevalence_by_arm = function(par, dataset){
       data_cluster_temp[data_cluster_temp$adh_cat == "NHS","model_prev"] = steady_state_normalized[14]
       data_cluster_temp[data_cluster_temp$adh_cat == "WHS","model_prev"] = steady_state_normalized[15]
       data_cluster_temp[data_cluster_temp$adh_cat == "NWHS","model_prev"] = steady_state_normalized[16]
-      
+
       dataset[dataset$svy==j & dataset$clusterid == clusters[i],"model_prev"] = data_cluster_temp[,"model_prev"]
-      
+
     }
   }
-  
+
   temp_prev_model = as.data.frame(matrix(NA,7,4))
   for (i in 1:7){
     for (j in 0:2){
@@ -538,7 +571,7 @@ prevalence_by_arm = function(par, dataset){
 
 counterfactual_simulation = function(i){
   print(which(unique(index)==i))
-  prev_mat = prevalence_by_arm(par=unlist(sample_and_NLL[i,1:16]), dataset=data)
+  prev_mat = prevalence_by_arm(par=unlist(sample_and_NLL[i,1:18]), dataset=data)
 
  #By wave, prevalence at baseline, midline, endline, midline/endline average
   prevalences = c(prev_mat[1,1],prev_mat[1,2],prev_mat[1,3],prev_mat[1,4],
@@ -551,10 +584,10 @@ counterfactual_simulation = function(i){
   return(prevalences)
 }
 
-index_prevalences = sapply(index,FUN=counterfactual_simulation)
-index_prevalences = cbind(index, t(index_prevalences))
-full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "prevalences.RDS")
+# index_prevalences = sapply(index,FUN=counterfactual_simulation)
+# index_prevalences = cbind(index, t(index_prevalences))
+# full_prevalences = index_prevalences[match(resample,index),-1]
+# saveRDS(full_prevalences, "prevalences.RDS")
 prevalences = readRDS("prevalences.RDS")
 
 #Extract arm-svy prevalences
@@ -567,6 +600,22 @@ prevS0    = prevalences[,17]
 prevW0    = prevalences[,21]
 prevWSH0  = prevalences[,25]
 #Midline/Endline average
+prevC1    = prevalences[,2]
+prevH1    = prevalences[,6]
+prevN1    = prevalences[,10]
+prevWSHN1 = prevalences[,14]
+prevS1    = prevalences[,18]
+prevW1    = prevalences[,22]
+prevWSH1  = prevalences[,26]
+#Midline/Endline average
+prevC2    = prevalences[,3]
+prevH2    = prevalences[,7]
+prevN2    = prevalences[,11]
+prevWSHN2 = prevalences[,15]
+prevS2    = prevalences[,19]
+prevW2    = prevalences[,23]
+prevWSH2  = prevalences[,27]
+#Midline/Endline average
 prevC12    = prevalences[,4]
 prevH12    = prevalences[,8]
 prevN12    = prevalences[,12]
@@ -575,17 +624,23 @@ prevS12    = prevalences[,20]
 prevW12    = prevalences[,24]
 prevWSH12  = prevalences[,28]
 
-obs_prev = matrix(NA,7,2)
+obs_prev = matrix(NA,7,4)
 for (i in 1:7){
   obs_prev[i,1] = sum(data[data$armid==i & data$svy==0,"diar7d"])/length(data[data$armid==i & data$svy==0,"diar7d"])
-  obs_prev[i,2] = sum(data[data$armid==i & data$svy%in%c(1,2),"diar7d"])/length(data[data$armid==i & data$svy%in%c(1,2),"diar7d"])
+  obs_prev[i,2] = sum(data[data$armid==i & data$svy==1,"diar7d"])/length(data[data$armid==i & data$svy==1,"diar7d"])
+  obs_prev[i,3] = sum(data[data$armid==i & data$svy==2,"diar7d"])/length(data[data$armid==i & data$svy==2,"diar7d"])
+  obs_prev[i,4] = sum(data[data$armid==i & data$svy%in%c(1,2),"diar7d"])/length(data[data$armid==i & data$svy%in%c(1,2),"diar7d"])
 }
-obs_prev_se = matrix(NA,7,2)
+obs_prev_se = matrix(NA,7,4)
 for (i in 1:7){
   p1= sum(data[data$armid==i & data$svy==0,"diar7d"])/length(data[data$armid==i & data$svy==0,"diar7d"])
-  p2= sum(data[data$armid==i & data$svy%in%c(1,2),"diar7d"])/length(data[data$armid==i & data$svy%in%c(1,2),"diar7d"])
+  p2= sum(data[data$armid==i & data$svy==1,"diar7d"])/length(data[data$armid==i & data$svy==1,"diar7d"])
+  p3= sum(data[data$armid==i & data$svy==2,"diar7d"])/length(data[data$armid==i & data$svy==2,"diar7d"])
+  p4= sum(data[data$armid==i & data$svy%in%c(1,2),"diar7d"])/length(data[data$armid==i & data$svy%in%c(1,2),"diar7d"])
   obs_prev_se[i,1] = sqrt(p1*(1-p1)/nrow(data[data$armid==i & data$svy==0,]))
-  obs_prev_se[i,2] = sqrt(p2*(1-p2)/nrow(data[data$armid==i & data$svy%in%c(1,2),]))
+  obs_prev_se[i,2] = sqrt(p2*(1-p2)/nrow(data[data$armid==i & data$svy==1,]))
+  obs_prev_se[i,3] = sqrt(p3*(1-p3)/nrow(data[data$armid==i & data$svy==2,]))
+  obs_prev_se[i,4] = sqrt(p4*(1-p4)/nrow(data[data$armid==i & data$svy%in%c(1,2),]))
 }
 obs_rel_risk = matrix(NA,7,3)
 for (i in 1:7){
@@ -599,14 +654,25 @@ for (i in 1:7){
 }
 
 #Data prevalence
-prev = c(obs_prev[c(1,6,5,2,7,3,4),1],obs_prev[c(1,6,5,2,7,3,4),2])
-prev_low = c(obs_prev[c(1,6,5,2,7,3,4),1],obs_prev[c(1,6,5,2,7,3,4),2]) -qnorm(0.975,0,1)*c(obs_prev_se[c(1,6,5,2,7,3,4),1],obs_prev_se[c(1,6,5,2,7,3,4),2])
-prev_high = c(obs_prev[c(1,6,5,2,7,3,4),1],obs_prev[c(1,6,5,2,7,3,4),2]) +qnorm(0.975,0,1)*c(obs_prev_se[c(1,6,5,2,7,3,4),1],obs_prev_se[c(1,6,5,2,7,3,4),2])
-Arm = rep(c("Control","Water","Sanitation","Hygiene","WSH","Nutrition","WSH-N"),2)
-Data = rep(c("Baseline","Midline/endline"),each=7)
-DATA1=data.frame(prev,prev_low,prev_high,Arm,Data)
-DATA1$Arm=factor(DATA1$Arm,levels=c("Control","Water","Sanitation","Hygiene","WSH","Nutrition","WSH-N"))
-DATA1$Data=factor(DATA1$Data,levels=c("Baseline","Midline/endline"))
+prev14 = c(obs_prev[c(1,6,5,2,7,3,4),1],obs_prev[c(1,6,5,2,7,3,4),4])
+prev_low14 = c(obs_prev[c(1,6,5,2,7,3,4),1],obs_prev[c(1,6,5,2,7,3,4),4]) -qnorm(0.975,0,1)*c(obs_prev_se[c(1,6,5,2,7,3,4),1],obs_prev_se[c(1,6,5,2,7,3,4),4])
+prev_high14 = c(obs_prev[c(1,6,5,2,7,3,4),1],obs_prev[c(1,6,5,2,7,3,4),4]) +qnorm(0.975,0,1)*c(obs_prev_se[c(1,6,5,2,7,3,4),1],obs_prev_se[c(1,6,5,2,7,3,4),4])
+Arm14 = rep(c("Control","Water","Sanitation","Hygiene","WSH","Nutrition","WSH-N"),2)
+Data14 = rep(c("Baseline","Midline/endline"),each=7)
+DATA1a=data.frame(prev14,prev_low14,prev_high14,Arm14,Data14)
+DATA1a$Arm=factor(DATA1a$Arm,levels=c("Control","Water","Sanitation","Hygiene","WSH","Nutrition","WSH-N"))
+DATA1a$Data=factor(DATA1a$Data,levels=c("Baseline","Midline/endline"))
+
+prev123 = c(obs_prev[c(1,6,5,2,7,3,4),1],obs_prev[c(1,6,5,2,7,3,4),2],obs_prev[c(1,6,5,2,7,3,4),3])
+prev_low123 = c(obs_prev[c(1,6,5,2,7,3,4),1],obs_prev[c(1,6,5,2,7,3,4),2],obs_prev[c(1,6,5,2,7,3,4),3])-
+  qnorm(0.975,0,1)*c(obs_prev_se[c(1,6,5,2,7,3,4),1],obs_prev_se[c(1,6,5,2,7,3,4),2],obs_prev_se[c(1,6,5,2,7,3,4),3])
+prev_high123 = c(obs_prev[c(1,6,5,2,7,3,4),1],obs_prev[c(1,6,5,2,7,3,4),2],obs_prev[c(1,6,5,2,7,3,4),3])+
+  qnorm(0.975,0,1)*c(obs_prev_se[c(1,6,5,2,7,3,4),1],obs_prev_se[c(1,6,5,2,7,3,4),2],obs_prev_se[c(1,6,5,2,7,3,4),3])
+Arm = rep(c("Control","Water","Sanitation","Hygiene","WSH","Nutrition","WSH-N"),3)
+Data = rep(c("Baseline","Midline","Endline"),each=7)
+DATA1b=data.frame(prev123,prev_low123,prev_high123,Arm,Data)
+DATA1b$Arm=factor(DATA1b$Arm,levels=c("Control","Water","Sanitation","Hygiene","WSH","Nutrition","WSH-N"))
+DATA1b$Data=factor(DATA1b$Data,levels=c("Baseline","Midline", "Endline"))
 
 #Data relative risk
 prev = obs_rel_risk[c(1,6,5,2,7,3,4),1]
@@ -619,7 +685,7 @@ DATA2$Arm=factor(DATA2$Arm,levels=c("Control","Water","Sanitation","Hygiene","WS
 DATA2$Data=factor(DATA2$Data,levels=c("Midline/endline"))
 
 #Model prevalence
-Prevalence = c(prevC0,  prevC12,   
+Prevalence = c(prevC0,  prevC12,
                prevW0,  prevW12,
                prevS0,  prevS12,
                prevH0,  prevH12,
@@ -628,12 +694,26 @@ Prevalence = c(prevC0,  prevC12,
                prevWSHN0,  prevWSHN12)
 Arm = rep(c("Control","Water","Sanitation","Hygiene","WSH","Nutrition","WSH-N"),each=2*nrow(prevalences))
 Simulation = rep(rep(c("Baseline","Midline/endline"),each=nrow(prevalences)),7)
-DATA3=data.frame(Prevalence,Arm,Simulation)
-DATA3$Arm=factor(DATA3$Arm,levels=c("Control","Water","Sanitation","Hygiene","WSH","Nutrition","WSH-N"))
-DATA3$Simulation=factor(DATA3$Simulation,levels=c("Baseline","Midline/endline"))
+DATA3a=data.frame(Prevalence,Arm,Simulation)
+DATA3a$Arm=factor(DATA3a$Arm,levels=c("Control","Water","Sanitation","Hygiene","WSH","Nutrition","WSH-N"))
+DATA3a$Simulation=factor(DATA3a$Simulation,levels=c("Baseline","Midline/endline"))
+
+Prevalence = c(prevC0,  prevC1, prevC2,
+               prevW0,  prevW1, prevW2,
+               prevS0,  prevS1, prevS2,
+               prevH0,  prevH1, prevH2,
+               prevWSH0,  prevWSH1, prevWSH2,
+               prevN0,  prevN1, prevN2,
+               prevWSHN0,  prevWSHN1,  prevWSHN2)
+Arm = rep(c("Control","Water","Sanitation","Hygiene","WSH","Nutrition","WSH-N"),each=3*nrow(prevalences))
+Simulation = rep(rep(c("Baseline","Midline","Endline"),each=nrow(prevalences)),7)
+DATA3b=data.frame(Prevalence,Arm,Simulation)
+DATA3b$Arm=factor(DATA3b$Arm,levels=c("Control","Water","Sanitation","Hygiene","WSH","Nutrition","WSH-N"))
+DATA3b$Simulation=factor(DATA3b$Simulation,levels=c("Baseline","Midline", "Endline"))
+
 
 #Model relative risk
-Rel_risk = c( prevC12/prevC0,  
+Rel_risk = c( prevC12/prevC0,
               prevW12/prevW0,
               prevS12/prevS0,
               prevH12/prevH0,
@@ -648,15 +728,27 @@ DATA4$Simulation=factor(DATA4$Simulation,levels=c("Baseline","Midline/endline"))
 
 #Data and model plots
 #prevalence
-Pplot= ggplot()+
-  geom_violin(data = DATA3, aes(x=Arm, y=Prevalence, fill=Simulation), adjust = 4,scale="count",width=2.5,position = position_dodge(width =1), color = NA)+
+Pplota= ggplot()+
+  geom_violin(data = DATA3a, aes(x=Arm, y=Prevalence, fill=Simulation), adjust = 4,scale="count",width=2.5,position = position_dodge(width =1), color = NA)+
   scale_fill_manual(values=c("firebrick2","dodgerblue1"))+
-  geom_pointrange(data = DATA1, aes(x=Arm, y=prev, ymin = prev_low, ymax = prev_high, color=Data),position = position_dodge(width = 0.5))+
+  geom_pointrange(data = DATA1a, aes(x=Arm, y=prev14, ymin = prev_low14, ymax = prev_high14, color=Data),position = position_dodge(width = 0.5))+
   scale_color_manual(values=c("firebrick2","dodgerblue1"))+
   scale_y_continuous(expand = c(0, 0),limits=c(0,0.12))+
   ylab("Prevalence")+
   theme_classic()
-Pplot
+Pplota
+
+Pplotb= ggplot()+
+  geom_violin(data = DATA3b, aes(x=Arm, y=Prevalence, fill=Simulation), adjust = 4,scale="count",width=2.5,position = position_dodge(width =1), color = NA,alpha=0.75)+
+  scale_fill_manual(values=c("firebrick2","skyblue","blue3"))+
+  geom_pointrange(data = DATA1b, aes(x=Arm, y=prev123, ymin = prev_low123, ymax = prev_high123, color=Data,shape=Data),position = position_dodge(width = 0.5))+
+  scale_shape_discrete()+
+  scale_color_manual(values=c("firebrick2","skyblue","blue3"))+
+  scale_y_continuous(expand = c(0, 0),limits=c(0,0.12))+
+  ylab("Prevalence")+
+  theme_classic()
+Pplotb
+ggsave(file="FigS2.pdf", width = 7, height = 3.5)
 
 #Relative risk
 Rplot = ggplot()+
@@ -670,173 +762,186 @@ Rplot = ggplot()+
   guides(fill = guide_legend(order =1),col = guide_legend(order = 2))
 Rplot
 
+Fig_fit=ggarrange(Pplota, Rplot, ncol=1, nrow=2,hjust=-6, labels="auto",heights=c(1,1))
+ggsave(file="Fig5.pdf", width = 7, height = 7)
+
 ###################################################################################
 #Parameter histograms
 resample_sample = sample_and_NLL[resample,]
 
 #NLL
-p0 = ggplot() + 
+p0 = ggplot() +
   geom_histogram(aes(x=resample_sample$NLL,y = ..density..),binwidth = 1, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   geom_histogram(aes(x=sample_and_NLL$NLL,y = ..density..),binwidth = 1, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
-  ylab("Density") + xlab("Negative log-likelihood")+xlim(c(3245,3300))+
+  ylab("Density") + xlab("Negative log-likelihood")+xlim(c(3240,3340))+
   scale_y_continuous(expand = expansion(mult=c(0, 0.1)))+
-  annotate("text",x=3250, y=0.28, hjust=0, label = paste("Posterior"))+
+  annotate("text",x=3255, y=0.28, hjust=0, label = paste("Posterior"))+
   annotate("text",x=3260, y=0.05, hjust=0, label = paste("Prior"))+
   theme_classic()
+ggsave(file="FigS1.pdf", width = 7, height = 3.5)
 
 #R0 and pathway-specific R0s
-p1= ggplot() + 
-  geom_histogram(aes(x=resample_sample[,1],y = ..density..),binwidth = 0.05, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+nbins= 15
+p1= ggplot() +
+  geom_histogram(aes(x=resample_sample[,1],y = ..density..),binwidth = 1/nbins, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   geom_vline(xintercept = mean(resample_sample[,1]),col = "grey10")+
   ylab("Density") + xlab("Overall R0")+
-  xlim(c(0,1.4))+ #xlim(c(1,1.4))+
-  scale_y_continuous(limits=c(0,13),expand = expansion(mult=c(0,0.1)),labels = scales::number_format(accuracy = 0.1))+
+  xlim(c(0,1.4))+ 
+  scale_y_continuous(limits=c(0,14),expand = expansion(mult=c(0,0.1)),labels = scales::number_format(accuracy = 0.1))+
   theme_classic()
 
 p2=ggplot() +
-  geom_histogram(aes(x=sample_and_NLL[,1]*sample_and_NLL[,2],y = ..density..),binwidth = 0.05, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
-  geom_histogram(aes(x=resample_sample[,1]*resample_sample[,2],y = ..density..),binwidth = 0.05, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
-  geom_vline(xintercept = mean(resample_sample[,1]*resample_sample[,2]),col = "grey10")+
+  geom_histogram(aes(x=sample_and_NLL[,1]*sample_and_NLL[,2],y = ..density..),binwidth = 1/nbins, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
+  geom_histogram(aes(x=resample_sample[,1]*resample_sample[,2],y = ..density..),binwidth = 1/nbins, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+  geom_vline(xintercept = median(resample_sample[,1]*resample_sample[,2]),col = "grey10")+
   ylab("Density") + xlab("Water R0")+
   xlim(c(0,1.4))+
-  scale_y_continuous(limits=c(0,13),expand = expansion(mult=c(0,0.1)),labels = scales::number_format(accuracy = 0.1))+
+  scale_y_continuous(limits=c(0,14),expand = expansion(mult=c(0,0.1)),labels = scales::number_format(accuracy = 0.1))+
   theme_classic()
 
-p3=ggplot() + 
-  geom_histogram(aes(x=sample_and_NLL[,1]*(1-sample_and_NLL[,2])*sample_and_NLL[,3],y = ..density..),binwidth = 0.05, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
-  geom_histogram(aes(x=resample_sample[,1]*(1-resample_sample[,2])*resample_sample[,3],y = ..density..),binwidth = 0.05, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
-  geom_vline(xintercept = mean(resample_sample[,1]*(1-resample_sample[,2])*resample_sample[,3]),col = "grey10")+
+p3=ggplot() +
+  geom_histogram(aes(x=sample_and_NLL[,1]*(1-sample_and_NLL[,2])*sample_and_NLL[,3],y = ..density..),binwidth = 1/nbins, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
+  geom_histogram(aes(x=resample_sample[,1]*(1-resample_sample[,2])*resample_sample[,3],y = ..density..),binwidth = 1/nbins, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+  geom_vline(xintercept = median(resample_sample[,1]*(1-resample_sample[,2])*resample_sample[,3]),col = "grey10")+
   ylab("Density") + xlab("Fomite R0")+
   xlim(c(0,1.4))+
-  scale_y_continuous(limits=c(0,13),expand = expansion(mult=c(0,0.1)),labels = scales::number_format(accuracy = 0.1))+
+  scale_y_continuous(limits=c(0,14),expand = expansion(mult=c(0,0.1)),labels = scales::number_format(accuracy = 0.1))+
   theme_classic()
 
-p4=ggplot() + 
-  geom_histogram(aes(x=sample_and_NLL[,1]*(1-sample_and_NLL[,2])*(1-sample_and_NLL[,3]),y = ..density..),binwidth = 0.05, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
-  geom_histogram(aes(x=resample_sample[,1]*(1-resample_sample[,2])*(1-resample_sample[,3]),y = ..density..),binwidth = 0.05, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
-  geom_vline(xintercept = mean(resample_sample[,1]*(1-resample_sample[,2])*(1-resample_sample[,3])),col = "grey10")+
+p4=ggplot() +
+  geom_histogram(aes(x=sample_and_NLL[,1]*(1-sample_and_NLL[,2])*(1-sample_and_NLL[,3]),y = ..density..),binwidth = 1/nbins, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
+  geom_histogram(aes(x=resample_sample[,1]*(1-resample_sample[,2])*(1-resample_sample[,3]),y = ..density..),binwidth = 1/nbins, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+  geom_vline(xintercept = median(resample_sample[,1]*(1-resample_sample[,2])*(1-resample_sample[,3])),col = "grey10")+
   ylab("Density") + xlab("Other R0")+
   xlim(c(0,1.4))+
-  scale_y_continuous(limits=c(0,13),expand = expansion(mult=c(0,0.1)),labels = scales::number_format(accuracy = 0.1))+
+  scale_y_continuous(limits=c(0,14),expand = expansion(mult=c(0,0.1)),labels = scales::number_format(accuracy = 0.1))+
   theme_classic()
 
 FigR0=ggarrange(p1, p2, p3, p4, ncol=2, nrow=2,hjust=0, labels="auto",heights=c(1,1,1,1))
+ggsave(file="Fig6.pdf", width = 7, height = 3.5)
 
 #Efficacy
-p5=ggplot() + 
-  geom_histogram(aes(x=sample_and_NLL[,5],y = ..density..),binwidth = 0.05, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
-  geom_histogram(aes(x=resample_sample[,5],y = ..density..),binwidth = 0.05, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+p5=ggplot() +
+  geom_histogram(aes(x=sample_and_NLL[,5],y = ..density..),binwidth = 1/nbins, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
+  geom_histogram(aes(x=resample_sample[,5],y = ..density..),binwidth = 1/nbins, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   ylab("Density") + xlab("Efficacy of chlorination")+xlim(c(0,1))+
   scale_y_continuous(limits=c(0,3.5),expand = c(0, 0.1))+
-  geom_vline(xintercept = mean(resample_sample[,5]),col = "grey10")+
+  geom_vline(xintercept = median(resample_sample[,5]),col = "grey10")+
   theme_classic()
 
-p6=ggplot() + 
-  geom_histogram(aes(x=sample_and_NLL[,7],y = ..density..),binwidth = 0.05, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
-  geom_histogram(aes(x=resample_sample[,7],y = ..density..),binwidth = 0.05, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+p6=ggplot() +
+  geom_histogram(aes(x=sample_and_NLL[,7],y = ..density..),binwidth = 1/nbins, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
+  geom_histogram(aes(x=resample_sample[,10]*resample_sample[,7],y = ..density..),binwidth = 1/nbins, fill = "blue", color = "black",alpha=0.75,boundary=0)+
+  geom_histogram(aes(x=resample_sample[,7],y = ..density..),binwidth = 1/nbins, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   ylab("Density") + xlab("Efficacy of latrine water seal")+xlim(c(0,1))+
-  scale_y_continuous(limits=c(0,3.5),expand = c(0, 0.1))+
-  geom_vline(xintercept = mean(resample_sample[,7]),col = "grey10")+
+  scale_y_continuous(limits=c(0,10),expand = c(0, 0.1))+
+  geom_vline(xintercept = median(resample_sample[,7]),col = "grey10")+
+  geom_vline(xintercept = median(resample_sample[,10]*resample_sample[,7]),col = "blue")+
   theme_classic()
 
-p7=ggplot() + 
-  geom_histogram(aes(x=sample_and_NLL[,6],y = ..density..),binwidth = 0.05, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
-  geom_histogram(aes(x=resample_sample[,6],y = ..density..),binwidth = 0.05, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+p7=ggplot() +
+  geom_histogram(aes(x=sample_and_NLL[,6],y = ..density..),binwidth = 1/nbins, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
+  geom_histogram(aes(x=resample_sample[,9]*resample_sample[,6],y = ..density..),binwidth = 1/nbins, fill = "blue", color = "black",alpha=0.75,boundary=0)+
+  geom_histogram(aes(x=resample_sample[,6],y = ..density..),binwidth = 1/nbins, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   ylab("Density") + xlab("Efficacy of handwashing")+xlim(c(0,1))+
   scale_y_continuous(limits=c(0,3.5),expand = c(0, 0.1))+
-  geom_vline(xintercept = mean(resample_sample[,6]),col = "grey10")+
+  geom_vline(xintercept = median(resample_sample[,6]),col = "grey10")+
+  geom_vline(xintercept = median(resample_sample[,9]*resample_sample[,6]),col = "blue")+
   theme_classic()
 
-p8=ggplot() + 
-  geom_histogram(aes(x=sample_and_NLL[,4],y = ..density..),binwidth = 0.05, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
-  geom_histogram(aes(x=resample_sample[,4],y = ..density..),binwidth = 0.05, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+p8=ggplot() +
+  geom_histogram(aes(x=sample_and_NLL[,4],y = ..density..),binwidth = 1/nbins, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
+  geom_histogram(aes(x=resample_sample[,4],y = ..density..),binwidth = 1/nbins, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   ylab("Density") + xlab("Efficacy of nutrition")+xlim(c(0,1))+
-  scale_y_continuous(limits=c(0,5),expand = c(0, 0.1))+
-  geom_vline(xintercept = mean(resample_sample[,4]),col = "grey10")+
+  scale_y_continuous(limits=c(0,6),expand = c(0, 0.1))+
+  geom_vline(xintercept = median(resample_sample[,4]),col = "grey10")+
   theme_classic()
 
 Fig_eff=ggarrange(p5, p6, p7, p8, ncol=2, nrow=2,hjust=-5, labels="auto",heights=c(1,1,1,1))
-
-#Coverage
-p9=ggplot() + 
-  geom_histogram(aes(x=sample_and_NLL[,8],y = ..density..),binwidth = 0.01, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
-  geom_histogram(aes(x=resample_sample[,8],y = ..density..),binwidth = 0.01, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
-  ylab("Density") + xlab("Coverage fraction")+xlim(c(0,0.1))+
-  scale_y_continuous(expand = expansion(mult=c(0, 0.1)))+
-  geom_vline(xintercept = mean(resample_sample[,8]),col = "grey10")+
-  theme_classic()
+ggsave(file="Fig7.pdf", width = 7, height = 3.5)
 
 #Relative R0s
-q1=ggplot() + 
-  geom_histogram(aes(x=resample_sample[,9],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+q1=ggplot() +
+  geom_histogram(aes(x=resample_sample[,11],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   ylab("Density") + xlab("Relative R0 of midline")+
   geom_vline(xintercept = 1,col = "grey30",linetype="dashed")+
-  geom_vline(xintercept = mean(resample_sample[,9]),col = "grey10")+
+  geom_vline(xintercept = median(resample_sample[,11]),col = "grey10")+
   xlim(c(0.97,1.05))+
   scale_y_continuous(limits=c(0,210), expand = c(0, 0.1))+
   theme_classic()
 
-q2=ggplot() + 
-  geom_histogram(aes(x=resample_sample[,10],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+q2=ggplot() +
+  geom_histogram(aes(x=resample_sample[,12],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   ylab("Density") + xlab("Relative R0 of endline")+
   geom_vline(xintercept = 1,col = "grey30",linetype="dashed")+
-  geom_vline(xintercept = mean(resample_sample[,10]),col = "grey10")+
+  geom_vline(xintercept = median(resample_sample[,12]),col = "grey10")+
   xlim(c(0.97,1.05))+
   scale_y_continuous(limits=c(0,210), expand = c(0, 0.1))+
   theme_classic()
 
-q3=ggplot() + 
-  geom_histogram(aes(x=resample_sample[,15],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+q3=ggplot() +
+  geom_histogram(aes(x=resample_sample[,17],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   ylab("Density") + xlab("Relative R0 of W arm")+
   geom_vline(xintercept = 1,col = "grey30",linetype="dashed")+
-  geom_vline(xintercept = mean(resample_sample[,15]),col = "grey10")+
+  geom_vline(xintercept = median(resample_sample[,17]),col = "grey10")+
   xlim(c(0.97,1.05))+
   scale_y_continuous(limits=c(0,210), expand = c(0, 0.1))+
   theme_classic()
 
-q4=ggplot() + 
-  geom_histogram(aes(x=resample_sample[,14],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+q4=ggplot() +
+  geom_histogram(aes(x=resample_sample[,16],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   ylab("Density") + xlab("Relative R0 of S arm")+
   geom_vline(xintercept = 1,col = "grey30",linetype="dashed")+
-  geom_vline(xintercept = mean(resample_sample[,14]),col = "grey10")+
+  geom_vline(xintercept = median(resample_sample[,16]),col = "grey10")+
   xlim(c(0.97,1.05))+
   scale_y_continuous(limits=c(0,210), expand = c(0, 0.1))+
   theme_classic()
 
-q5=ggplot() + 
-  geom_histogram(aes(x=resample_sample[,11],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+q5=ggplot() +
+  geom_histogram(aes(x=resample_sample[,13],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   ylab("Density") + xlab("Relative R0 of H arm")+
   geom_vline(xintercept = 1,col = "grey30",linetype="dashed")+
-  geom_vline(xintercept = mean(resample_sample[,11]),col = "grey10")+
+  geom_vline(xintercept = median(resample_sample[,13]),col = "grey10")+
   xlim(c(0.97,1.05))+
   scale_y_continuous(limits=c(0,210), expand = c(0, 0.1))+
   theme_classic()
 
-q6=ggplot() + 
-  geom_histogram(aes(x=resample_sample[,16],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+q6=ggplot() +
+  geom_histogram(aes(x=resample_sample[,18],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   ylab("Density") + xlab("Relative R0 of WSH arm")+
   geom_vline(xintercept = 1,col = "grey30",linetype="dashed")+
-  geom_vline(xintercept = mean(resample_sample[,16]),col = "grey10")+
+  geom_vline(xintercept = median(resample_sample[,18]),col = "grey10")+
   xlim(c(0.97,1.05))+
   scale_y_continuous(limits=c(0,210), expand = c(0, 0.1))+
   theme_classic()
 
-q7=ggplot() + 
-  geom_histogram(aes(x=resample_sample[,12],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+q7=ggplot() +
+  geom_histogram(aes(x=resample_sample[,14],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   ylab("Density") + xlab("Relative R0 of N arm")+
   geom_vline(xintercept = 1,col = "grey30",linetype="dashed")+
-  geom_vline(xintercept = mean(resample_sample[,12]),col = "grey10")+
+  geom_vline(xintercept = median(resample_sample[,14]),col = "grey10")+
   xlim(c(0.97,1.05))+
   scale_y_continuous(limits=c(0,210), expand = c(0, 0.1))+
-  theme_classic() 
+  theme_classic()
 
-q8=ggplot() + 
-  geom_histogram(aes(x=resample_sample[,13],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+q8=ggplot() +
+  geom_histogram(aes(x=resample_sample[,15],y = ..density..),binwidth = 0.002, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
   ylab("Density") + xlab("Relative R0 of WSHN arm")+
   geom_vline(xintercept = 1,col = "grey30",linetype="dashed")+
-  geom_vline(xintercept = mean(resample_sample[,13]),col = "grey10")+
+  geom_vline(xintercept = median(resample_sample[,15]),col = "grey10")+
   xlim(c(0.97,1.05))+
   scale_y_continuous(limits=c(0,210), expand = c(0, 0.1))+
   theme_classic()
 
 Fig_relR0=ggarrange(q1, q2, q3, q4, q5, q6, q7, q8, ncol=2, nrow=4,hjust=c(-6, -5, -6,-5,-6, -10,-6,-5), labels="auto",heights=c(1,1,1,1))
+ggsave(file="FigS3.pdf", width = 7, height = 7)
+
+#Coverage
+p9=ggplot() +
+  geom_histogram(aes(x=sample_and_NLL[,8],y = ..density..),binwidth = 0.02, fill = "grey90", color = "grey50",alpha=0.75,boundary=0)+
+  geom_histogram(aes(x=resample_sample[,8],y = ..density..),binwidth = 0.02, fill = "grey30", color = "black",alpha=0.75,boundary=0)+
+  ylab("Density") + xlab("Community coverage")+xlim(c(0,0.2))+
+  scale_y_continuous(expand = expansion(mult=c(0, 0.1)))+
+  geom_vline(xintercept = median(resample_sample[,8]),col = "grey10")+
+  theme_classic()
+ggsave(file="FigS4.pdf", width = 3.5, height = 3.5/2)
