@@ -144,7 +144,7 @@ coverage_model = function(t, x, model_par){
   dxdt[12] =  S_NWH * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) -  I_NWH
   dxdt[13] =  S_NWS * phiN * ( R0W * EW * phiW + R0H * EH + R0O * EO) -  I_NWS
   dxdt[14] =  S_NHS * phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_NHS
-  dxdt[15] =  S_WHS * ( R0W * EW + R0H * phiW * EH * phiH  + R0O * EO) -  I_WHS
+  dxdt[15] =  S_WHS * ( R0W * EW * phiW + R0H  * EH * phiH  + R0O * EO) -  I_WHS
   dxdt[16] =  S_NWHS * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) -  I_NWHS
   
   dxdt[17] =   I - S * ( R0W * EW + R0H * EH + R0O * EO) 
@@ -161,7 +161,7 @@ coverage_model = function(t, x, model_par){
   dxdt[28] =   I_NWH - S_NWH * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) 
   dxdt[29] =   I_NWS - S_NWS * phiN * ( R0W * EW * phiW + R0H * EH + R0O * EO) 
   dxdt[30] =   I_NHS - S_NHS * phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) 
-  dxdt[31] =   I_WHS - S_WHS * ( R0W * EW + R0H * phiW * EH * phiH  + R0O * EO) 
+  dxdt[31] =   I_WHS - S_WHS * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) 
   dxdt[32] =   I_NWHS - S_NWHS * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO)
   
   return(list(dxdt))
@@ -797,62 +797,62 @@ counterfactual_simulation = function(i, simul){
   #counterfactual - coverage = 20%
   if (simul == "coverage20"){
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     prev_mat = prevalence_by_arm_new_coverage(par=par, new_omega = 0.2, data)}
   #counterfactual - coverage = 30%
   if (simul == "coverage30"){
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     prev_mat = prevalence_by_arm_new_coverage(par=par, new_omega = 0.3, data)}
   #counterfactual - coverage = 40%
   if (simul == "coverage40"){
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     prev_mat = prevalence_by_arm_new_coverage(par=par, new_omega = 0.4, data)}
   #counterfactual - coverage = 50%
   if (simul == "coverage50"){
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     prev_mat = prevalence_by_arm_new_coverage(par=par, new_omega = 0.5, data)}
   #counterfactual - coverage = 60%
   if (simul == "coverage60"){
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     prev_mat = prevalence_by_arm_new_coverage(par=par, new_omega = 0.6, data)}
   #counterfactual - coverage = 70%
   if (simul == "coverage70"){
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     prev_mat = prevalence_by_arm_new_coverage(par=par, new_omega = 0.7, data)}
   #counterfactual - coverage = 80%
   if (simul == "coverage80"){
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     prev_mat = prevalence_by_arm_new_coverage(par=par, new_omega = 0.8, data)}
   #counterfactual - coverage = 90%
   if (simul == "coverage90"){
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     prev_mat = prevalence_by_arm_new_coverage(par=par, new_omega = 0.9, data)}
   #counterfactual - coverage = 100%
   if (simul == "coverage100"){
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     prev_mat = prevalence_by_arm_new_coverage(par=par, new_omega = 1, data)}
   # counterfactual - no conditions 
   if (simul == "no_conditions"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     prev_mat = prevalence_by_arm_no_conditions(par=par, data)}
   # counterfactual - full adherence 
   if (simul == "full_adherence"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     prev_mat = prevalence_by_arm_full_adherence(par=par, data)}
   # counterfactual - 50% less "other" transmission
   if (simul == "50_less_other"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     R0O = par[1]*(1-par[2])*(1-par[3]) * 0.5 
     R0W = (par[1] - par[1]*(1-par[2])*(1-par[3]) * 0.5) * (par[2])/(par[2]+(1-par[2])*par[3])
     R0H = (par[1] - par[1]*(1-par[2])*(1-par[3]) * 0.5) * ((1-par[2])*par[3])/(par[2]+(1-par[2])*par[3])
@@ -860,48 +860,48 @@ counterfactual_simulation = function(i, simul){
   # counterfactual - 100% less "other" transmission
   if (simul == "100_less_other"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     R0W = (par[1]*par[2])/(par[2]+(1-par[2])*par[3])
     #Note how R0H is determined by setting the new par[3] to 1 in the following argument
     prev_mat = prevalence_by_arm(c(par[1],(R0W/par[1]), 1, par[4:16]), data)}
   # counterfactual - 25% more efficacy of N
   if (simul == "25efficacy_N"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     par[4]= min(1, 1.25*par[4])
     prev_mat = prevalence_by_arm(par, data)}
   # counterfactual - 50% more efficacy of N
   if (simul == "50efficacy_N"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     par[4]= min(1, 1.5*par[4])
     prev_mat = prevalence_by_arm(par, data)}
   if (simul == "100efficacy_N"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     par[4]= min(1, 2*par[4])
     prev_mat = prevalence_by_arm(par, data)}
   # counterfactual - 25% more efficacy of W
   if (simul == "25efficacy_W"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     par[5]= min(1, 1.25*par[5])
     prev_mat = prevalence_by_arm(par, data)}
   # counterfactual - 50% more efficacy of W
   if (simul == "50efficacy_W"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     par[5]= min(1, 1.5*par[5])
     prev_mat = prevalence_by_arm(par, data)}
   if (simul == "100efficacy_W"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     par[5]= min(1, 2*par[5])
     prev_mat = prevalence_by_arm(par, data)}
   # counterfactual - 25% more efficacy of H
   if (simul == "25efficacy_H"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     new_par = min(1, 1.25*par[6])
     par[9]= par[9]*par[6]/new_par
     par[6]= new_par 
@@ -909,14 +909,14 @@ counterfactual_simulation = function(i, simul){
   # counterfactual - 50% more efficacy of H
   if (simul == "50efficacy_H"){
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     new_par = min(1, 1.5*par[6])
     par[9]= par[9]*par[6]/new_par
     par[6]= new_par 
     prev_mat = prevalence_by_arm(par, data)}
   if (simul == "100efficacy_H"){
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     new_par = min(1, 2*par[6])
     par[9]= par[9]*par[6]/new_par
     par[6]= new_par 
@@ -924,7 +924,7 @@ counterfactual_simulation = function(i, simul){
   # counterfactual - 25% more efficacy of S
   if (simul == "25efficacy_S"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     new_par = min(1, 1.25*par[7])
     par[10]= par[10]*par[7]/new_par
     par[7]= new_par 
@@ -932,7 +932,7 @@ counterfactual_simulation = function(i, simul){
   # counterfactual - 50% more efficacy of S
   if (simul == "50efficacy_S"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     new_par = min(1, 1.5*par[7])
     par[10]= par[10]*par[7]/new_par
     par[7]= new_par     
@@ -940,7 +940,7 @@ counterfactual_simulation = function(i, simul){
   # counterfactual - 100% more efficacy of S
   if (simul == "100efficacy_S"){ 
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     new_par = min(1, 2*par[7])
     par[10]= par[10]*par[7]/new_par
     par[7]= new_par 
@@ -948,7 +948,7 @@ counterfactual_simulation = function(i, simul){
   # counterfactual - double baseline prevalence
   if (simul == "2prev"){
     par=unlist(sample_and_NLL[i,1:18])
-    par[11:18] = 1 
+    # par[11:18] = 1 
     base_prev = prevalence_C0(par,data)
 
     new_R0_func = function(par1){
@@ -1024,7 +1024,7 @@ index_prevalences = parSapply(cluster,index,FUN=counterfactual_simulation, simul
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_coverage20.RDS")
+saveRDS(full_prevalences, "Bprevalences_coverage20_with_var.RDS")
 print("coverage20")
 
 tic()
@@ -1032,7 +1032,7 @@ index_prevalences = parSapply(cluster,index,FUN=counterfactual_simulation, simul
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_coverage30.RDS")
+saveRDS(full_prevalences, "Bprevalences_coverage30_with_var.RDS")
 print("coverage30")
 
 tic()
@@ -1040,7 +1040,7 @@ index_prevalences = parSapply(cluster,index,FUN=counterfactual_simulation, simul
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_coverage40.RDS")
+saveRDS(full_prevalences, "Bprevalences_coverage40_with_var.RDS")
 print("coverage40")
 
 tic()
@@ -1048,7 +1048,7 @@ index_prevalences = parSapply(cluster,index,FUN=counterfactual_simulation, simul
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_coverage50.RDS")
+saveRDS(full_prevalences, "Bprevalences_coverage50_with_var.RDS")
 print("coverage50")
 
 tic()
@@ -1056,7 +1056,7 @@ index_prevalences = parSapply(cluster,index,FUN=counterfactual_simulation, simul
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_coverage60.RDS")
+saveRDS(full_prevalences, "Bprevalences_coverage60_with_var.RDS")
 print("coverage60")
 
 tic()
@@ -1064,7 +1064,7 @@ index_prevalences = parSapply(cluster,index,FUN=counterfactual_simulation, simul
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_coverage70.RDS")
+saveRDS(full_prevalences, "Bprevalences_coverage70_with_var.RDS")
 print("coverage70")
 
 tic()
@@ -1072,7 +1072,7 @@ index_prevalences = parSapply(cluster,index,FUN=counterfactual_simulation, simul
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_coverage80.RDS")
+saveRDS(full_prevalences, "Bprevalences_coverage80_with_var.RDS")
 print("coverage80")
 
 tic()
@@ -1080,7 +1080,7 @@ index_prevalences = parSapply(cluster,index,FUN=counterfactual_simulation, simul
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_coverage90.RDS")
+saveRDS(full_prevalences, "Bprevalences_coverage90_with_var.RDS")
 print("coverage90")
 
 tic()
@@ -1088,7 +1088,7 @@ index_prevalences = parSapply(cluster,index,FUN=counterfactual_simulation, simul
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_coverage100.RDS")
+saveRDS(full_prevalences, "Bprevalences_coverage100_with_var.RDS")
 print("coverage100")
 
 tic()
@@ -1096,7 +1096,7 @@ index_prevalences = parSapply(cluster,index,FUN=counterfactual_simulation, simul
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_no_conditions.RDS")
+saveRDS(full_prevalences, "Bprevalences_no_conditions_with_var.RDS")
 print("no conditions")
 
 tic()
@@ -1104,7 +1104,7 @@ index_prevalences = parSapply(cluster,index,FUN=counterfactual_simulation, simul
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_full_adherence.RDS")
+saveRDS(full_prevalences, "Bprevalences_full_adherence_with_var.RDS")
 print("full adherence")
 
 tic()
@@ -1112,7 +1112,7 @@ index_prevalences =  parSapply(cluster,index,FUN=counterfactual_simulation, simu
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_50_less_other.RDS")
+saveRDS(full_prevalences, "Bprevalences_50_less_other_with_var.RDS")
 print("50% less other")
 
 tic()
@@ -1120,7 +1120,7 @@ index_prevalences =  parSapply(cluster,index,FUN=counterfactual_simulation, simu
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_100efficacy_N.RDS")
+saveRDS(full_prevalences, "Bprevalences_100efficacy_N_with_var.RDS")
 print("N100")
 
 tic()
@@ -1128,7 +1128,7 @@ index_prevalences =  parSapply(cluster,index,FUN=counterfactual_simulation, simu
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_100efficacy_W.RDS")
+saveRDS(full_prevalences, "Bprevalences_100efficacy_W_with_var.RDS")
 print("W100")
 
 tic()
@@ -1136,7 +1136,7 @@ index_prevalences =  parSapply(cluster,index,FUN=counterfactual_simulation, simu
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_100efficacy_S.RDS")
+saveRDS(full_prevalences, "Bprevalences_100efficacy_S_with_var.RDS")
 print("S100")
 
 tic()
@@ -1144,7 +1144,7 @@ index_prevalences =  parSapply(cluster,index,FUN=counterfactual_simulation, simu
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_100efficacy_H.RDS")
+saveRDS(full_prevalences, "Bprevalences_100efficacy_H_with_var.RDS")
 print("H100")
 
 tic()
@@ -1152,7 +1152,7 @@ index_prevalences =  parSapply(cluster,index,FUN=counterfactual_simulation, simu
 toc()
 index_prevalences = cbind(index, t(index_prevalences))
 full_prevalences = index_prevalences[match(resample,index),-1]
-saveRDS(full_prevalences, "Bprevalences_2prev.RDS")
+saveRDS(full_prevalences, "Bprevalences_2prev_with_var.RDS")
 print("2prev")
 
 stopCluster(cluster)
