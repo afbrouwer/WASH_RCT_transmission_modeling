@@ -24,7 +24,7 @@ This code can reproduce the figures in the paper. Several intermediate data obje
 
 "prevalences.RDS"
 
-The subdirectory Counterfactuals contains the additional code needed to reproduce the results and figrures from "Improving the effectiveness of water, sanitation, and hygiene interventions: a simulation approach to generalizing the outcomes of intervention trials." It includes the following files:
+The subdirectory Counterfactuals contains the additional code needed to reproduce the results and figures from "Improving the effectiveness of water, sanitation, and hygiene interventions: a simulation approach to generalizing the outcomes of intervention trials." It includes the following files:
 
 Simulate counterfactuals - "Code_counterfactuals_Bangladesh"
 
