@@ -1,6 +1,6 @@
 # WASH_RCT_transmission_modeling
 
-This repository contains the data and code for the papers using the susceptible, infections, susceptible transmission model with an environmental pathway applied to randomized controlled trials.
+This repository contains the data and code for the papers using the susceptible, infections, susceptible transmission model with an environmental pathway applied to randomized controlled trials (SISE-RCT model).
 
 A public Shiny app for the code is available here: https://umich-biostatistics.shinyapps.io/sise_rct/
 
