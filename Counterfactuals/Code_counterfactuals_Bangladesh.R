@@ -2,6 +2,7 @@ library(SobolSequence)
 library(tictoc)
 library(deSolve)
 library(parallel)
+library(nleqslv)
 
 data = read.csv("washmodeldata_bangladesh.csv")
 data=data[!is.na(data$ageyrs) & data$ageyrs>0,] #remove children with non-positive ages
@@ -74,9 +75,12 @@ data$model_prev=NA
 data$NLL=NA
 
 ###################################################################################
-#Differential equation model
+#Model
 
-coverage_model = function(t, x, model_par){
+model = function(x, model_par,N_vec){
+  
+  x=abs(x) #transformation keeps things positive
+  x[N_vec==0]=0
   
   piN = model_par[1]
   piW = model_par[2]
@@ -108,63 +112,205 @@ coverage_model = function(t, x, model_par){
   I_WHS= x[15]
   I_NWHS= x[16]
   
-  S = x[17]
-  S_N = x[18]
-  S_W= x[19]
-  S_H= x[20]
-  S_S= x[21]
-  S_NW= x[22]
-  S_NH= x[23]
-  S_NS= x[24]
-  S_WH= x[25]
-  S_WS= x[26]
-  S_HS= x[27]
-  S_NWH= x[28]
-  S_NWS= x[29]
-  S_NHS= x[30]
-  S_WHS= x[31]
-  S_NWHS= x[32]
+  S = N_vec[1] - x[1]
+  S_N = N_vec[2] - x[2]
+  S_W= N_vec[3] - x[3]
+  S_H= N_vec[4] - x[4]
+  S_S= N_vec[5] - x[5]
+  S_NW= N_vec[6] - x[6]
+  S_NH= N_vec[7] - x[7]
+  S_NS= N_vec[8] - x[8]
+  S_WH= N_vec[9] - x[9]
+  S_WS= N_vec[10] - x[10]
+  S_HS= N_vec[11] - x[11]
+  S_NWH= N_vec[12] - x[12]
+  S_NWS= N_vec[13] - x[13]
+  S_NHS= N_vec[14] - x[14]
+  S_WHS= N_vec[15] - x[15]
+  S_NWHS= N_vec[16] - x[16]
   
   EW = phiS * sum(x[c(5,8,10,11,13:16)])  + sum(x[c(1:4,6:7,9,12)])
   EH = sum(x[1:16])
   EO = sum(x[1:16])
   
-  dxdt = numeric(length(x))
-  dxdt[1]  =  S * ( R0W * EW + R0H * EH + R0O * EO) -  I
-  dxdt[2]  =  S_N * phiN * ( R0W * EW  + R0H * EH + R0O * EO) -  I_N
-  dxdt[3]  =  S_W * ( R0W * EW * phiW + R0H * EH + R0O * EO) -  I_W
-  dxdt[4]  =  S_H * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_H
-  dxdt[5]  =  S_S * ( R0W * EW + R0H * EH + R0O * EO) -  I_S
-  dxdt[6]  =  S_NW * phiN * ( R0W * EW * phiW + R0H * EH + R0O * EO) -  I_NW
-  dxdt[7]  =  S_NH * phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_NH
-  dxdt[8]  =  S_NS * phiN * ( R0W * EW + R0H * EH + R0O * EO) -  I_NS
-  dxdt[9]  =  S_WH * ( R0W * phiW * EW + R0H * EH * phiH  + R0O * EO) -  I_WH
-  dxdt[10] =  S_WS * ( R0W * phiW * EW + R0H * EH + R0O * EO) -  I_WS
-  dxdt[11] =  S_HS * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_HS
-  dxdt[12] =  S_NWH * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) -  I_NWH
-  dxdt[13] =  S_NWS * phiN * ( R0W * EW * phiW + R0H * EH + R0O * EO) -  I_NWS
-  dxdt[14] =  S_NHS * phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_NHS
-  dxdt[15] =  S_WHS * ( R0W * EW * phiW + R0H  * EH * phiH  + R0O * EO) -  I_WHS
-  dxdt[16] =  S_NWHS * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) -  I_NWHS
+  y = numeric(length(x))
+  y[1]  =  S * ( R0W * EW + R0H * EH + R0O * EO) -  I
+  y[2]  =  S_N * phiN * ( R0W * EW  + R0H * EH + R0O * EO) -  I_N
+  y[3]  =  S_W * ( R0W * EW * phiW + R0H * EH + R0O * EO) -  I_W
+  y[4]  =  S_H * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_H
+  y[5]  =  S_S * ( R0W * EW + R0H * EH + R0O * EO) -  I_S
+  y[6]  =  S_NW * phiN * ( R0W * EW * phiW + R0H * EH + R0O * EO) -  I_NW
+  y[7]  =  S_NH * phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_NH
+  y[8]  =  S_NS * phiN * ( R0W * EW + R0H * EH + R0O * EO) -  I_NS
+  y[9]  =  S_WH * ( R0W * phiW * EW + R0H * EH * phiH  + R0O * EO) -  I_WH
+  y[10] =  S_WS * ( R0W * phiW * EW + R0H * EH + R0O * EO) -  I_WS
+  y[11] =  S_HS * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_HS
+  y[12] =  S_NWH * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) -  I_NWH
+  y[13] =  S_NWS * phiN * ( R0W * EW * phiW + R0H * EH + R0O * EO) -  I_NWS
+  y[14] =  S_NHS * phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_NHS
+  y[15] =  S_WHS * ( R0W * EW * phiW + R0H  * EH * phiH  + R0O * EO) -  I_WHS
+  y[16] =  S_NWHS * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) -  I_NWHS
   
-  dxdt[17] =   I - S * ( R0W * EW + R0H * EH + R0O * EO) 
-  dxdt[18] =   I_N - S_N * phiN * ( R0W * EW + R0H * EH + R0O * EO) 
-  dxdt[19] =   I_W - S_W * ( R0W * EW * phiW + R0H * EH + R0O * EO) 
-  dxdt[20] =   I_H - S_H * ( R0W * EW + R0H * EH * phiH  + R0O * EO) 
-  dxdt[21] =   I_S - S_S * ( R0W * EW + R0H * EH + R0O * EO) 
-  dxdt[22] =   I_NW - S_NW * phiN * ( R0W * EW * phiW + R0H * EH + R0O * EO)
-  dxdt[23] =   I_NH - S_NH * phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) 
-  dxdt[24] =   I_NS - S_NS * phiN * ( R0W * EW + R0H * EH + R0O * EO) 
-  dxdt[25] =   I_WH - S_WH * ( R0W * phiW * EW + R0H * EH * phiH  + R0O * EO) 
-  dxdt[26] =   I_WS - S_WS * ( R0W * phiW * EW + R0H * EH + R0O * EO) 
-  dxdt[27] =   I_HS - S_HS * ( R0W * EW + R0H * EH * phiH  + R0O * EO) 
-  dxdt[28] =   I_NWH - S_NWH * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) 
-  dxdt[29] =   I_NWS - S_NWS * phiN * ( R0W * EW * phiW + R0H * EH + R0O * EO) 
-  dxdt[30] =   I_NHS - S_NHS * phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) 
-  dxdt[31] =   I_WHS - S_WHS * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) 
-  dxdt[32] =   I_NWHS - S_NWHS * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO)
+  return(y)
   
-  return(list(dxdt))
+}
+
+
+model_Jac = function(x, model_par ,N_vec){
+  
+  x=abs(x)
+  x[N_vec==0]=0
+  
+  piN = model_par[1]
+  piW = model_par[2]
+  piH = model_par[3]
+  piS = model_par[4]
+  R0W = model_par[5]
+  R0H = model_par[6]
+  R0O = model_par[7]
+  
+  phiN = 1 - piN
+  phiW = 1 - piW
+  phiH = 1 - piH
+  phiS = 1 - piS
+  
+  I = x[1]
+  I_N = x[2]
+  I_W= x[3]
+  I_H= x[4]
+  I_S= x[5]
+  I_NW= x[6]
+  I_NH= x[7]
+  I_NS= x[8]
+  I_WH= x[9]
+  I_WS= x[10]
+  I_HS= x[11]
+  I_NWH= x[12]
+  I_NWS= x[13]
+  I_NHS = x[14]
+  I_WHS= x[15]
+  I_NWHS= x[16]
+  
+  S = N_vec[1] - x[1]
+  S_N = N_vec[2] - x[2]
+  S_W= N_vec[3] - x[3]
+  S_H= N_vec[4] - x[4]
+  S_S= N_vec[5] - x[5]
+  S_NW= N_vec[6] - x[6]
+  S_NH= N_vec[7] - x[7]
+  S_NS= N_vec[8] - x[8]
+  S_WH= N_vec[9] - x[9]
+  S_WS= N_vec[10] - x[10]
+  S_HS= N_vec[11] - x[11]
+  S_NWH= N_vec[12] - x[12]
+  S_NWS= N_vec[13] - x[13]
+  S_NHS= N_vec[14] - x[14]
+  S_WHS= N_vec[15] - x[15]
+  S_NWHS= N_vec[16] - x[16]
+  
+  EW = phiS * sum(x[c(5,8,10,11,13:16)])  + sum(x[c(1:4,6:7,9,12)])
+  EH = sum(x[1:16])
+  EO = sum(x[1:16])
+  
+  Df = matrix(0, length(x), length(x))
+  
+  # no intervention 
+  # S * ( R0W * EW + R0H * EH + R0O * EO) -  I
+  Df[1,c(1:4,6:7,9,12)]   = S * (R0W + R0H + R0O) #All groups without S. Note that this is wrong for 1=I, but we'll overwrite it -- this way we aren't messing around with indices too much
+  Df[1,c(5,8,10,11,13:16)]= S * (R0W*phiS + R0H + R0O) #All groups with S.
+  Df[1,1]   =  -(R0W * EW + R0H * EH + R0O * EO) + S * (R0W + R0H + R0O) - 1 #We correct 1=I here
+  
+  #N 
+  #S_N * phiN * (R0W * EW  + R0H * EH + R0O * EO) -  I_N
+  Df[2,c(1:4,6:7,9,12)]   = S_N * phiN * (R0W + R0H + R0O)
+  Df[2,c(5,8,10,11,13:16)]= S_N * phiN * (R0W*phiS + R0H + R0O)
+  Df[2,2]   = -phiN * (R0W * EW  +  R0H * EH + R0O * EO) + S_N * phiN * (R0W + R0H + R0O) -  1
+  
+  #W
+  #S_W * ( R0W * EW * phiW + R0H * EH + R0O * EO) -  I_W
+  Df[3,c(1:4,6:7,9,12)]   = S_W * (R0W * phiW + R0H + R0O)
+  Df[3,c(5,8,10,11,13:16)]= S_W * (R0W * phiW * phiS + R0H + R0O)
+  Df[3,3]   = -(R0W * EW * phiW + R0H * EH + R0O * EO) + S_W * (R0W * phiW + R0H + R0O) -  1
+  
+  #H
+  # S_H * (R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_H
+  Df[4,c(1:4,6:7,9,12)]   = S_H * (R0W + R0H * phiH  + R0O)
+  Df[4,c(5,8,10,11,13:16)]= S_H * (R0W*phiS + R0H * phiH  + R0O)
+  Df[4,4]   = -(R0W * EW + R0H * EH * phiH  + R0O * EO) + S_H * (R0W + R0H * phiH  + R0O) -  1
+  
+  #S
+  # S_S * ( R0W * EW + R0H * EH + R0O * EO) -  I_S
+  Df[5,c(1:4,6:7,9,12)]   = S_S * (R0W + R0H + R0O)
+  Df[5,c(5,8,10,11,13:16)]= S_S * (R0W*phiS + R0H + R0O)
+  Df[5,5]   = -(R0W * EW + R0H * EH + R0O * EO) + S_S * (R0W*phiS + R0H + R0O) -  1
+  
+  #NW
+  # S_NW * phiN * ( R0W * EW * phiW + R0H * EH + R0O * EO) -  I_NW
+  Df[6,c(1:4,6:7,9,12)]   = S_NW * phiN * (R0W * phiW + R0H + R0O)
+  Df[6,c(5,8,10,11,13:16)]= S_NW * phiN * (R0W * phiW * phiS + R0H + R0O)
+  Df[6,6]   = -phiN * (R0W * EW * phiW + R0H * EH + R0O * EO) + S_NW * phiN * (R0W * phiW + R0H + R0O) -  1
+  
+  #NH
+  # S_NH * phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_NH
+  Df[7,c(1:4,6:7,9,12)]   = S_NH * phiN * (R0W + R0H * phiH  + R0O)
+  Df[7,c(5,8,10,11,13:16)]= S_NH * phiN * (R0W*phiS + R0H * phiH  + R0O)
+  Df[7,7] = -phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) + S_NH * phiN * (R0W + R0H * phiH  + R0O) -  1
+  
+  #NS
+  # S_NS * phiN * ( R0W * EW + R0H * EH + R0O * EO) -  I_NS
+  Df[8,c(1:4,6:7,9,12)]   = S_NH * phiN * (R0W + R0H * phiH  + R0O)
+  Df[8,c(5,8,10,11,13:16)]= S_NH * phiN * (R0W*phiS + R0H * phiH  + R0O)
+  Df[8,8]   = -phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) + S_NH * phiN * (R0W + R0H * phiH  + R0O) -  1
+  
+  #WH
+  # S_WH * ( R0W * phiW * EW + R0H * EH * phiH  + R0O * EO) -  I_WH
+  Df[9,c(1:4,6:7,9,12)]   = S_WH * ( R0W * phiW + R0H * phiH  + R0O)
+  Df[9,c(5,8,10,11,13:16)]= S_WH * ( R0W * phiW * phiS + R0H * phiH  + R0O)
+  Df[9,9]   = -(R0W * phiW * EW + R0H * EH * phiH  + R0O * EO) + S_WH * ( R0W * phiW + R0H * phiH  + R0O) -  1
+  
+  #WS
+  # S_WS * ( R0W * phiW * EW + R0H * EH + R0O * EO) -  I_WS
+  Df[10,c(1:4,6:7,9,12)]   = S_WS * ( R0W * phiW + R0H + R0O)
+  Df[10,c(5,8,10,11,13:16)]= S_WS * ( R0W * phiW * phiS + R0H + R0O)
+  Df[10,10] = -(R0W * phiW * EW + R0H * EH + R0O * EO) + S_WS * ( R0W * phiW * phiS + R0H + R0O) -  1
+  
+  #HS
+  # S_HS * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_HS
+  Df[11,c(1:4,6:7,9,12)]   = S_HS * ( R0W + R0H * phiH  + R0O)
+  Df[11,c(5,8,10,11,13:16)]= S_HS * ( R0W * phiS + R0H * phiH  + R0O)
+  Df[11,11] = -(R0W * EW + R0H * EH * phiH  + R0O * EO) + S_HS * ( R0W * phiS + R0H * phiH  + R0O) -  1
+  
+  #NWH
+  # S_NWH * phiN * ( R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) -  I_NWH
+  Df[12,c(1:4,6:7,9,12)]   = S_NWH * phiN * (R0W * phiW + R0H * phiH  + R0O)
+  Df[12,c(5,8,10,11,13:16)]= S_NWH * phiN * (R0W * phiW * phiS + R0H * phiH  + R0O)
+  Df[12,12] = -phiN * (R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) + S_NWH * phiN * (R0W * phiW + R0H * phiH  + R0O) -  1
+  
+  #NWS
+  # S_NWS * phiN * ( R0W * EW * phiW + R0H * EH + R0O * EO) -  I_NWS
+  Df[13,c(1:4,6:7,9,12)]   = S_NWS * phiN * (R0W * phiW + R0H + R0O)
+  Df[13,c(5,8,10,11,13:16)]= S_NWS * phiN * (R0W * phiW *phiS + R0H + R0O)
+  Df[13,13] = -phiN * (R0W * EW * phiW + R0H * EH + R0O * EO) + S_NWS * phiN * (R0W * phiW *phiS + R0H + R0O) -  1
+  
+  #NHS
+  # S_NHS * phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) -  I_NHS
+  Df[14,c(1:4,6:7,9,12)]   = S_NHS * phiN * (R0W + R0H * phiH  + R0O)
+  Df[14,c(5,8,10,11,13:16)]= S_NHS * phiN * (R0W * phiS + R0H * phiH  + R0O)
+  Df[14,14] = - phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) + S_NHS * phiN * (R0W * phiS + R0H * phiH  + R0O) -  1
+  
+  #WHS
+  # S_WHS * (R0W * EW * phiW + R0H  * EH * phiH  + R0O * EO) -  I_WHS
+  Df[15,c(1:4,6:7,9,12)]   = S_WHS * (R0W * phiW + R0H * phiH  + R0O)
+  Df[15,c(5,8,10,11,13:16)]= S_WHS * (R0W * phiW * phiS + R0H * phiH  + R0O)
+  Df[15,15] = - phiN * ( R0W * EW + R0H * EH * phiH  + R0O * EO) + S_WHS * (R0W * phiW * phiS + R0H * phiH  + R0O) -  1
+  
+  #NWHS
+  # S_NWHS * phiN * (R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) -  I_NWHS
+  Df[16,c(1:4,6:7,9,12)]   = S_NWHS * phiN * (R0W * phiW + R0H * phiH  + R0O)
+  Df[16,c(5,8,10,11,13:16)]= S_NWHS * phiN * (R0W * phiW * phiS + R0H * phiH  + R0O)
+  Df[16,16] = -phiN * (R0W * EW * phiW + R0H * EH * phiH  + R0O * EO) + S_NWHS * phiN * (R0W * phiW * phiS + R0H * phiH  + R0O) -  1
+  
+  return(Df)
   
 }
 
@@ -229,15 +375,15 @@ prevalence_C0 = function(par, dataset){
                   sum(data_cluster_temp$adh_cat == "WHS"),
                   sum(data_cluster_temp$adh_cat == "NWHS"))/length(data_cluster_temp$adh_cat)
       
-      prev= 0.06 #baseline prevalence 
-      x0 = c(rep(prev,16)*(rho_vec*omega + baseline_adherence_vec*(1-omega)),
-             rep(1-prev, 16)*(rho_vec*omega + baseline_adherence_vec*(1-omega)))
+      prev= max(1-1/sum(model_par[5:7]),1E-10) #initial condition prevalence 
+      N_vec= rho_vec*omega + baseline_adherence_vec*(1-omega)
+      #intervention distribution * fraction covered + non-intervention distribution * fraction not covered
+      I0 = prev*N_vec
       
-      out_coverage = ode(x0, times = c(0,100), coverage_model, model_par,method="vode")
-      
-      steady_state = as.vector(pmax(tail(out_coverage[,2:17],1),1E-10))
-      #It is possible for the  simulations go negative as they straddle 0. 
-      #Capping the negative values addresses this issue 
+      steady_state = abs(nleqslv(x=I0,fn=model,jac = model_Jac, 
+                                 model_par=model_par, N_vec = N_vec,
+                                 method="Broyden", control=list(allowSingular=1))$x)
+      steady_state[N_vec=0]=0
       
       #Calculate prevalence within each group
       steady_state_normalized = steady_state/(omega*rho_vec + (1-omega)*baseline_adherence_vec)
@@ -325,15 +471,15 @@ prevalence_by_arm = function(par, dataset){
                   sum(data_cluster_temp$adh_cat == "WHS"),
                   sum(data_cluster_temp$adh_cat == "NWHS"))/length(data_cluster_temp$adh_cat)
       
-      prev= 0.06 #baseline prevalence 
-      x0 = c(rep(prev,16)*(rho_vec*omega + baseline_adherence_vec*(1-omega)),
-             rep(1-prev, 16)*(rho_vec*omega + baseline_adherence_vec*(1-omega)))
+      prev= max(1-1/sum(model_par[5:7]),1E-10) #initial condition prevalence 
+      N_vec= rho_vec*omega + baseline_adherence_vec*(1-omega)
+      #intervention distribution * fraction covered + non-intervention distribution * fraction not covered
+      I0 = prev*N_vec
       
-      out_coverage = ode(x0, times = c(0,100), coverage_model, model_par,method="vode")
-      
-      steady_state = as.vector(pmax(tail(out_coverage[,2:17],1),1E-10))
-      #It is possible for the  simulations go negative as they straddle 0. 
-      #Capping the negative values addresses this issue 
+      steady_state = abs(nleqslv(x=I0,fn=model,jac = model_Jac, 
+                                 model_par=model_par, N_vec = N_vec,
+                                 method="Broyden", control=list(allowSingular=1))$x)
+      steady_state[N_vec=0]=0
       
       #Calculate prevalence within each group
       steady_state_normalized = steady_state/(omega*rho_vec + (1-omega)*baseline_adherence_vec)
@@ -437,15 +583,17 @@ prevalence_by_arm_new_coverage = function(par, new_omega, dataset){
                   sum(data_cluster_temp$adh_cat == "WHS"),
                   sum(data_cluster_temp$adh_cat == "NWHS"))/length(data_cluster_temp$adh_cat)
       
-      prev= 0.06 #baseline prevalence 
-      x0 = c(rep(prev,16)*(rho_vec*omega + intervention_adherence_vec*(new_omega- omega)+ baseline_adherence_vec*(1-new_omega)),
-             rep(1-prev, 16)*(rho_vec*omega + intervention_adherence_vec*(new_omega- omega) + baseline_adherence_vec*(1-new_omega)), prev, prev ,prev)
+      prev= max(1-1/sum(model_par[5:7]),1E-10) #initial condition prevalence 
+      N_vec= rho_vec*omega + intervention_adherence_vec*(new_omega- omega)+ baseline_adherence_vec*(1-new_omega)
+      #intervention distribution (in specific cluster) * original fraction covered + 
+      # intervention distribution (in arm overall) * (difference between original and new fraction covered) +
+      # non-intervention distribution * fraction not covered
+      I0 = prev*N_vec
       
-      out_coverage = ode(x0, times = c(0,100), coverage_model, model_par,method="vode")
-      
-      steady_state = as.vector(pmax(tail(out_coverage[,2:17],1),1E-10))
-      #It is possible for the  simulations go negative as they straddle 0. 
-      #Capping the negative values addresses this issue 
+      steady_state = abs(nleqslv(x=I0,fn=model,jac = model_Jac, 
+                                 model_par=model_par, N_vec = N_vec,
+                                 method="Broyden", control=list(allowSingular=1))$x)
+      steady_state[N_vec=0]=0
       
       #Calculate prevalence within each group
       steady_state_normalized = steady_state/(omega*rho_vec+ intervention_adherence_vec*(new_omega- omega) +  (1-new_omega)*baseline_adherence_vec)
@@ -570,15 +718,14 @@ prevalence_by_arm_no_conditions = function(par, dataset){
                   sum(data_cluster_temp$adh_cat_new == "WHS"),
                   sum(data_cluster_temp$adh_cat_new == "NWHS"))/length(data_cluster_temp$adh_cat)
       
-      prev= 0.06 #baseline prevalence 
-      x0 = c(rep(prev,16)*(rho_vec*omega + new_baseline_adherence_vec*(1-omega)),
-             rep(1-prev, 16)*(rho_vec*omega + new_baseline_adherence_vec*(1-omega)), prev, prev ,prev)
+      prev= max(1-1/sum(model_par[5:7]),1E-10) #initial condition prevalence 
+      N_vec= rho_vec*omega + new_baseline_adherence_vec*(1-omega)
+      I0 = prev*N_vec
       
-      out_coverage = ode(x0, times = c(0,100), coverage_model, model_par,method="vode")
-      
-      steady_state = as.vector(pmax(tail(out_coverage[,2:17],1),1E-10))
-      #It is possible for the  simulations go negative as they straddle 0. 
-      #Capping the negative values addresses this issue 
+      steady_state = abs(nleqslv(x=I0,fn=model,jac = model_Jac, 
+                                 model_par=model_par, N_vec = N_vec,
+                                 method="Broyden", control=list(allowSingular=1))$x)
+      steady_state[N_vec=0]=0
       
       #Calculate prevalence within each group
       steady_state_normalized = steady_state/(omega*rho_vec + (1-omega)*new_baseline_adherence_vec)
@@ -732,15 +879,14 @@ prevalence_by_arm_full_adherence = function(par, dataset){
                   sum(data_cluster_temp$adh_cat_new == "WHS"),
                   sum(data_cluster_temp$adh_cat_new == "NWHS"))/length(data_cluster_temp$adh_cat)
       
-      prev= 0.06 #baseline prevalence 
-      x0 = c(rep(prev,16)*(rho_vec*omega + baseline_adherence_vec*(1-omega)),
-             rep(1-prev, 16)*(rho_vec*omega + baseline_adherence_vec*(1-omega)))
+      prev= max(1-1/sum(model_par[5:7]),1E-10) #initial condition prevalence 
+      N_vec= rho_vec*omega + baseline_adherence_vec*(1-omega)
+      I0 = prev*N_vec
       
-      out_coverage = ode(x0, times = c(0,100), coverage_model, model_par,method="vode")
-      
-      steady_state = as.vector(pmax(tail(out_coverage[,2:17],1),1E-10))
-      #It is possible for the  simulations go negative as they straddle 0. 
-      #Capping the negative values addresses this issue 
+      steady_state = abs(nleqslv(x=I0,fn=model,jac = model_Jac, 
+                                 model_par=model_par, N_vec = N_vec,
+                                 method="Broyden", control=list(allowSingular=1))$x)
+      steady_state[N_vec=0]=0
       
       #Calculate prevalence within each group
       steady_state_normalized = steady_state/(omega*rho_vec + (1-omega)*baseline_adherence_vec)
@@ -993,7 +1139,8 @@ clusterExport(cluster,"data")
 clusterExport(cluster,"sample_and_NLL")
 clusterExport(cluster,"index")
 clusterExport(cluster,"counterfactual_simulation")
-clusterExport(cluster,"coverage_model")
+clusterExport(cluster,"model")
+clusterExport(cluster,"model_Jac")
 clusterExport(cluster,"prevalence_C0")
 clusterExport(cluster,"prevalence_by_arm")
 clusterExport(cluster,"prevalence_by_arm_new_coverage")
@@ -1002,6 +1149,7 @@ clusterExport(cluster,"prevalence_by_arm_full_adherence")
 clusterExport(cluster,"baseline_adherence_vec")
 clusterExport(cluster,"intervention_adherence")
 clusterEvalQ(cluster,library("deSolve"))
+clusterEvalQ(cluster,library("nleqslv"))
 
 tic()
 index_prevalences = parSapply(cluster,index,FUN=counterfactual_simulation, simul="factual")
