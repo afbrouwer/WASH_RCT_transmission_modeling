@@ -153,8 +153,7 @@ DN = ggplot( )+
         legend.text = element_text(size=8))
 
 Fig4=ggarrange(DW, DS, DH, DN, ncol=2, nrow=2,hjust=c(-7.5,-7,-7.5,-7), labels="auto",heights=c(1,1,1,1))
-ggsave(file="Fig4.pdf", width = 7, height = 3.5)
-
+ggsave(file="Fig4.png", width = 7, height = 3.5)
 
 
 #Compute cluster-level averages for each intervention
@@ -179,6 +178,33 @@ for (j in 0:2){
     cluster_list[[(n_clusters*j+i)]] = list(data[data$svy==j & data$clusterid == clusters[i],],j,clusters[i])
   }
 }
+
+# Compute distribution of WSH groups. Compute once and write back to cluster_list.
+for (i in seq_along(cluster_list)) {
+  x <- cluster_list[[i]][[1]]$adh_cat
+  
+  rho_vec <- c(
+    sum(x == "C"),
+    sum(x == "N"),
+    sum(x == "W"),
+    sum(x == "H"),
+    sum(x == "S"),
+    sum(x == "NW"),
+    sum(x == "NH"),
+    sum(x == "NS"),
+    sum(x == "WH"),
+    sum(x == "WS"),
+    sum(x == "HS"),
+    sum(x == "NWH"),
+    sum(x == "NWS"),
+    sum(x == "NHS"),
+    sum(x == "WHS"),
+    sum(x == "NWHS")
+  ) / length(x)
+  
+  cluster_list[[i]][["rho_vec"]] <- rho_vec
+}
+
 
 #For faster evaluation
 data$model_prev=NA
@@ -270,7 +296,7 @@ model_Jac = function(x, model_par ,N_vec){
   
   x=abs(x)
   x[N_vec==0]=0
-
+  
   piN = model_par[1]
   piW = model_par[2]
   piH = model_par[3]
@@ -442,7 +468,7 @@ evaluate_cluster_NLL = function(k, par){
   #compared to the intervention
   #Par 11 and 12 are the relative R0 of midline and endline vs baseline
   #Par 13-18 are the relative R0 of each arm relative to the control arm
-
+  
   data_cluster_temp = cluster_list[[k]][[1]]
   j = cluster_list[[k]][[2]]
   
@@ -474,27 +500,12 @@ evaluate_cluster_NLL = function(k, par){
     model_par= c(piN, piW, piH*piH_adj, piS*piS_adj, R0W*R0_adj, R0H*R0_adj, R0O*R0_adj)
     
     #Distribution of WSH groups
-    rho_vec = c(sum(data_cluster_temp$adh_cat == "C"),
-                sum(data_cluster_temp$adh_cat == "N"),
-                sum(data_cluster_temp$adh_cat == "W"),
-                sum(data_cluster_temp$adh_cat == "H"),
-                sum(data_cluster_temp$adh_cat == "S"),
-                sum(data_cluster_temp$adh_cat == "NW"),
-                sum(data_cluster_temp$adh_cat == "NH"),
-                sum(data_cluster_temp$adh_cat == "NS"),
-                sum(data_cluster_temp$adh_cat == "WH"),
-                sum(data_cluster_temp$adh_cat == "WS"),
-                sum(data_cluster_temp$adh_cat == "HS"),
-                sum(data_cluster_temp$adh_cat == "NWH"),
-                sum(data_cluster_temp$adh_cat == "NWS"),
-                sum(data_cluster_temp$adh_cat == "NHS"),
-                sum(data_cluster_temp$adh_cat == "WHS"),
-                sum(data_cluster_temp$adh_cat == "NWHS"))/length(data_cluster_temp$adh_cat)
+    rho_vec = cluster_list[[k]]$rho_vec
     
     prev= max(1-1/sum(model_par[5:7]),1E-10) #initial condition prevalence 
     N_vec= rho_vec*omega + baseline_adherence_vec*(1-omega)
     I0 = prev*N_vec
-
+    
     steady_state = abs(nleqslv(x=I0,fn=model,jac = model_Jac, 
                                model_par=model_par, N_vec = N_vec,
                                method="Broyden", control=list(allowSingular=1))$x)
@@ -502,27 +513,29 @@ evaluate_cluster_NLL = function(k, par){
     
     #Calculate prevalence within each group
     steady_state_normalized = steady_state/N_vec
-
-    data_cluster_temp[data_cluster_temp$adh_cat == "C","model_prev"] = steady_state_normalized[1]
-    data_cluster_temp[data_cluster_temp$adh_cat == "N","model_prev"] = steady_state_normalized[2]
-    data_cluster_temp[data_cluster_temp$adh_cat == "W","model_prev"] = steady_state_normalized[3]
-    data_cluster_temp[data_cluster_temp$adh_cat == "H","model_prev"] = steady_state_normalized[4]
-    data_cluster_temp[data_cluster_temp$adh_cat == "S","model_prev"] = steady_state_normalized[5]
-    data_cluster_temp[data_cluster_temp$adh_cat == "NW","model_prev"] = steady_state_normalized[6]
-    data_cluster_temp[data_cluster_temp$adh_cat == "NH","model_prev"] = steady_state_normalized[7]
-    data_cluster_temp[data_cluster_temp$adh_cat == "NS","model_prev"] = steady_state_normalized[8]
-    data_cluster_temp[data_cluster_temp$adh_cat == "WH","model_prev"] = steady_state_normalized[9]
-    data_cluster_temp[data_cluster_temp$adh_cat == "WS","model_prev"] = steady_state_normalized[10]
-    data_cluster_temp[data_cluster_temp$adh_cat == "HS","model_prev"] = steady_state_normalized[11]
-    data_cluster_temp[data_cluster_temp$adh_cat == "NWH","model_prev"] = steady_state_normalized[12]
-    data_cluster_temp[data_cluster_temp$adh_cat == "NWS","model_prev"] = steady_state_normalized[13]
-    data_cluster_temp[data_cluster_temp$adh_cat == "NHS","model_prev"] = steady_state_normalized[14]
-    data_cluster_temp[data_cluster_temp$adh_cat == "WHS","model_prev"] = steady_state_normalized[15]
-    data_cluster_temp[data_cluster_temp$adh_cat == "NWHS","model_prev"] = steady_state_normalized[16]
     
-    data_cluster_temp[,"NLL"] = -data_cluster_temp$weights * (data_cluster_temp$diar7d * log(data_cluster_temp$model_prev) + (1-data_cluster_temp$diar7d)* log(1-data_cluster_temp$model_prev))
+    #Assign prevalences to individuals in the cluster
+    x <- data_cluster_temp[["adh_cat"]]
+    mp <- rep_len(0, length(x))
+    mp[x == "C"] <- steady_state_normalized[1]
+    mp[x == "N"] <- steady_state_normalized[2]
+    mp[x == "W"] <- steady_state_normalized[3]
+    mp[x == "H"] <- steady_state_normalized[4]
+    mp[x == "S"] <- steady_state_normalized[5]
+    mp[x == "NW"] <- steady_state_normalized[6]
+    mp[x == "NH"] <- steady_state_normalized[7]
+    mp[x == "NS"] <- steady_state_normalized[8]
+    mp[x == "WH"] <- steady_state_normalized[9]
+    mp[x == "WS"] <- steady_state_normalized[10]
+    mp[x == "HS"] <- steady_state_normalized[11]
+    mp[x == "NWH"] <- steady_state_normalized[12]
+    mp[x == "NWS"] <- steady_state_normalized[13]
+    mp[x == "NHS"] <- steady_state_normalized[14]
+    mp[x == "WHS"] <- steady_state_normalized[15]
+    mp[x == "NWHS"] <- steady_state_normalized[16]
     
-    NLL = sum(data_cluster_temp[,"NLL"],na.rm=T)
+    d7d <- data_cluster_temp$diar7d
+    NLL <- sum(-data_cluster_temp$weights * (d7d * log(mp) + (1 - d7d)* log(1 - mp)), na.rm = TRUE)
     
     return(NLL)
   }
@@ -586,10 +599,11 @@ clusterEvalQ(cluster,library("deSolve"))
 clusterEvalQ(cluster,library("nleqslv"))
 print("cluster loaded")
 
+
 tic()
 sample_and_NLL = parSapply(cluster,1:50000,FUN=compute_NLL_function)
 toc()
-saveRDS(sample_and_NLL,"sample_and_NLL_iterates.RDS")
+saveRDS(sample_and_NLL,"sample_and_NLL_iterates_temp.RDS")
 
 stopCluster(cluster)
 print("stopping cluster")
@@ -624,20 +638,20 @@ prevalence_by_arm = function(par, dataset){
   piH = par[6]
   piS = par[7]
   omega = par[8]
-
+  
   clusters=unique(dataset$clusterid)
   for (j in 0:2){
     for (i in 1:length(clusters)){
-
+      
       data_cluster_temp = dataset[dataset$svy==j & dataset$clusterid == clusters[i],]
-
+      
       if (nrow(data_cluster_temp)==0){next} #skip the rest if there is no eligible people in this cluster for this survey
-
+      
       #Set arm and svy specific R0 adjustment
       svy_temp = j+1
       arm_temp = data_cluster_temp$armid[1]
       R0_adj = c(1,par[11:12])[svy_temp]*c(1,par[13:18])[arm_temp]
-
+      
       piH_adj=1
       piS_adj=1
       if (j == 0 | is.element(arm_temp,c(1,3,5,6))){
@@ -646,9 +660,9 @@ prevalence_by_arm = function(par, dataset){
       if (j == 0 | is.element(arm_temp,c(1,2,3,6))){
         piS_adj = par[10]
       }
-
+      
       model_par= c(piN, piW, piH*piH_adj, piS*piS_adj, R0W*R0_adj, R0H*R0_adj, R0O*R0_adj)
-
+      
       #Distribution of WSH groups
       rho_vec = c(sum(data_cluster_temp$adh_cat == "C"),
                   sum(data_cluster_temp$adh_cat == "N"),
@@ -666,7 +680,7 @@ prevalence_by_arm = function(par, dataset){
                   sum(data_cluster_temp$adh_cat == "NHS"),
                   sum(data_cluster_temp$adh_cat == "WHS"),
                   sum(data_cluster_temp$adh_cat == "NWHS"))/length(data_cluster_temp$adh_cat)
-
+      
       prev= max(1-1/sum(model_par[5:7]),1E-10) #initial condition prevalence 
       N_vec= rho_vec*omega + baseline_adherence_vec*(1-omega)
       I0 = prev*N_vec
@@ -678,7 +692,7 @@ prevalence_by_arm = function(par, dataset){
       
       #Calculate prevalence within each group
       steady_state_normalized = steady_state/N_vec
-
+      
       data_cluster_temp[data_cluster_temp$adh_cat == "C","model_prev"] = steady_state_normalized[1]
       data_cluster_temp[data_cluster_temp$adh_cat == "N","model_prev"] = steady_state_normalized[2]
       data_cluster_temp[data_cluster_temp$adh_cat == "W","model_prev"] = steady_state_normalized[3]
@@ -695,12 +709,12 @@ prevalence_by_arm = function(par, dataset){
       data_cluster_temp[data_cluster_temp$adh_cat == "NHS","model_prev"] = steady_state_normalized[14]
       data_cluster_temp[data_cluster_temp$adh_cat == "WHS","model_prev"] = steady_state_normalized[15]
       data_cluster_temp[data_cluster_temp$adh_cat == "NWHS","model_prev"] = steady_state_normalized[16]
-
+      
       dataset[dataset$svy==j & dataset$clusterid == clusters[i],"model_prev"] = data_cluster_temp[,"model_prev"]
-
+      
     }
   }
-
+  
   temp_prev_model = as.data.frame(matrix(NA,7,4))
   for (i in 1:7){
     for (j in 0:2){
@@ -718,8 +732,8 @@ prevalence_by_arm = function(par, dataset){
 counterfactual_simulation = function(i){
   print(which(unique(index)==i))
   prev_mat = prevalence_by_arm(par=unlist(sample_and_NLL[i,1:18]), dataset=data)
-
- #By wave, prevalence at baseline, midline, endline, midline/endline average
+  
+  #By wave, prevalence at baseline, midline, endline, midline/endline average
   prevalences = c(prev_mat[1,1],prev_mat[1,2],prev_mat[1,3],prev_mat[1,4],
                   prev_mat[2,1],prev_mat[2,2],prev_mat[2,3],prev_mat[2,4],
                   prev_mat[3,1],prev_mat[3,2],prev_mat[3,3],prev_mat[3,4],
@@ -894,7 +908,7 @@ Pplotb= ggplot()+
   ylab("Prevalence")+
   theme_classic()
 Pplotb
-ggsave(file="FigS2.pdf", width = 7, height = 3.5)
+ggsave(file="FigS2.png", width = 7, height = 3.5)
 
 #Relative risk
 Rplot = ggplot()+
@@ -909,7 +923,7 @@ Rplot = ggplot()+
 Rplot
 
 Fig_fit=ggarrange(Pplota, Rplot, ncol=1, nrow=2,hjust=-6, labels="auto",heights=c(1,1))
-ggsave(file="Fig5.pdf", width = 7, height = 7)
+ggsave(file="Fig5.png", width = 7, height = 7)
 
 ###################################################################################
 #Parameter histograms
@@ -924,7 +938,7 @@ p0 = ggplot() +
   annotate("text",x=3255, y=0.28, hjust=0, label = paste("Posterior"))+
   annotate("text",x=3260, y=0.05, hjust=0, label = paste("Prior"))+
   theme_classic()
-ggsave(file="FigS1.pdf", width = 7, height = 3.5)
+ggsave(file="FigS1.png", width = 7, height = 3.5)
 
 #R0 and pathway-specific R0s
 nbins= 15
@@ -964,7 +978,7 @@ p4=ggplot() +
   theme_classic()
 
 FigR0=ggarrange(p1, p2, p3, p4, ncol=2, nrow=2,hjust=0, labels="auto",heights=c(1,1,1,1))
-ggsave(file="Fig6.pdf", width = 7, height = 3.5)
+ggsave(file="Fig6.png", width = 7, height = 3.5)
 
 #Efficacy
 p5=ggplot() +
@@ -1004,7 +1018,7 @@ p8=ggplot() +
   theme_classic()
 
 Fig_eff=ggarrange(p5, p6, p7, p8, ncol=2, nrow=2,hjust=-5, labels="auto",heights=c(1,1,1,1))
-ggsave(file="Fig7.pdf", width = 7, height = 3.5)
+ggsave(file="Fig7.png", width = 7, height = 3.5)
 
 #Relative R0s
 q1=ggplot() +
@@ -1080,7 +1094,7 @@ q8=ggplot() +
   theme_classic()
 
 Fig_relR0=ggarrange(q1, q2, q3, q4, q5, q6, q7, q8, ncol=2, nrow=4,hjust=c(-6, -5, -6,-5,-6, -10,-6,-5), labels="auto",heights=c(1,1,1,1))
-ggsave(file="FigS3.pdf", width = 7, height = 7)
+ggsave(file="FigS3.png", width = 7, height = 7)
 
 #Coverage
 p9=ggplot() +
@@ -1090,4 +1104,4 @@ p9=ggplot() +
   scale_y_continuous(expand = expansion(mult=c(0, 0.1)))+
   geom_vline(xintercept = median(resample_sample[,8]),col = "grey10")+
   theme_classic()
-ggsave(file="FigS4.pdf", width = 3.5, height = 3.5/2)
+ggsave(file="FigS4.png", width = 3.5, height = 3.5/2)

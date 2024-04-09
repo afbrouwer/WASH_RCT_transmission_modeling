@@ -60,7 +60,7 @@ adh_cat_groups = c("C","N","W","H","S","NW","NH","NS","WH","WS","HS","NWH","NWS"
 baseline_adherence_vec = array(0,16)
 baseline_adherence_vec[match(names(table(data[data$svy==0,"adh_cat"])),adh_cat_groups)] = table(data[data$svy==0,"adh_cat"])/sum(table(data[data$svy==0,"adh_cat"]))
 
-#Arm-level intervention adherence in baseline/midline
+#Arm-level intervention adherence in midline/endline
 intervention_adherence = matrix(0,7,16)
 intervention_adherence[1,match(names(table(data[data$svy!=0 & data$armid==1,"adh_cat"])),adh_cat_groups)] = table(data[data$svy!=0 & data$armid==1,"adh_cat"])/sum(table(data[data$svy!=0 & data$armid==1,"adh_cat"]))
 intervention_adherence[2,match(names(table(data[data$svy!=0 & data$armid==2,"adh_cat"])),adh_cat_groups)] = table(data[data$svy!=0 & data$armid==2,"adh_cat"])/sum(table(data[data$svy!=0 & data$armid==2,"adh_cat"]))
@@ -386,10 +386,8 @@ prevalence_C0 = function(par, dataset){
       steady_state[N_vec=0]=0
       
       #Calculate prevalence within each group
-      steady_state_normalized = steady_state/(omega*rho_vec + (1-omega)*baseline_adherence_vec)
-      #Anything that is going to 0, set to very small to avoid dependence on the specific times in the ODE.
-      steady_state_normalized[steady_state_normalized<0.005]=1E-10
-      
+      steady_state_normalized = steady_state/N_vec
+
       data_cluster_temp[data_cluster_temp$adh_cat == "C","model_prev"] = steady_state_normalized[1]
       data_cluster_temp[data_cluster_temp$adh_cat == "N","model_prev"] = steady_state_normalized[2]
       data_cluster_temp[data_cluster_temp$adh_cat == "W","model_prev"] = steady_state_normalized[3]
@@ -482,9 +480,7 @@ prevalence_by_arm = function(par, dataset){
       steady_state[N_vec=0]=0
       
       #Calculate prevalence within each group
-      steady_state_normalized = steady_state/(omega*rho_vec + (1-omega)*baseline_adherence_vec)
-      #Anything that is going to 0, set to very small to avoid dependence on the specific times in the ODE.
-      steady_state_normalized[steady_state_normalized<0.005]=1E-10
+      steady_state_normalized = steady_state/N_vec
       
       data_cluster_temp[data_cluster_temp$adh_cat == "C","model_prev"] = steady_state_normalized[1]
       data_cluster_temp[data_cluster_temp$adh_cat == "N","model_prev"] = steady_state_normalized[2]
@@ -596,10 +592,8 @@ prevalence_by_arm_new_coverage = function(par, new_omega, dataset){
       steady_state[N_vec=0]=0
       
       #Calculate prevalence within each group
-      steady_state_normalized = steady_state/(omega*rho_vec+ intervention_adherence_vec*(new_omega- omega) +  (1-new_omega)*baseline_adherence_vec)
-      #Anything that is going to 0, set to very small to avoid dependence on the specific times in the ODE.
-      steady_state_normalized[steady_state_normalized<0.005]=1E-10
-      
+      steady_state_normalized = steady_state/N_vec
+
       data_cluster_temp[data_cluster_temp$adh_cat == "C","model_prev"] = steady_state_normalized[1]
       data_cluster_temp[data_cluster_temp$adh_cat == "N","model_prev"] = steady_state_normalized[2]
       data_cluster_temp[data_cluster_temp$adh_cat == "W","model_prev"] = steady_state_normalized[3]
@@ -728,10 +722,8 @@ prevalence_by_arm_no_conditions = function(par, dataset){
       steady_state[N_vec=0]=0
       
       #Calculate prevalence within each group
-      steady_state_normalized = steady_state/(omega*rho_vec + (1-omega)*new_baseline_adherence_vec)
-      #Anything that is going to 0, set to very small to avoid dependence on the specific times in the ODE.
-      steady_state_normalized[steady_state_normalized<0.005]=1E-10
-      
+      steady_state_normalized = steady_state/N_vec
+
       data_cluster_temp[data_cluster_temp$adh_cat_new == "C","model_prev"] = steady_state_normalized[1]
       data_cluster_temp[data_cluster_temp$adh_cat_new == "N","model_prev"] = steady_state_normalized[2]
       data_cluster_temp[data_cluster_temp$adh_cat_new == "W","model_prev"] = steady_state_normalized[3]
@@ -889,10 +881,8 @@ prevalence_by_arm_full_adherence = function(par, dataset){
       steady_state[N_vec=0]=0
       
       #Calculate prevalence within each group
-      steady_state_normalized = steady_state/(omega*rho_vec + (1-omega)*baseline_adherence_vec)
-      #Anything that is going to 0, set to very small to avoid dependence on the specific times in the ODE.
-      steady_state_normalized[steady_state_normalized<0.005]=1E-10
-      
+      steady_state_normalized = steady_state/N_vec
+
       data_cluster_temp[data_cluster_temp$adh_cat_new == "C","model_prev"] = steady_state_normalized[1]
       data_cluster_temp[data_cluster_temp$adh_cat_new == "N","model_prev"] = steady_state_normalized[2]
       data_cluster_temp[data_cluster_temp$adh_cat_new == "W","model_prev"] = steady_state_normalized[3]

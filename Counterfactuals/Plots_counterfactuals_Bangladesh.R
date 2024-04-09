@@ -131,7 +131,7 @@ rel_rel_risks = function(file,color=NULL){
 ### Now plots counterfactual vs factual relative risk
 
 DATA=rel_rel_risks("Bprevalences_no_conditions_with_var.RDS",color="water pathway")
-# write.csv(DATA,"Table_Fig3A.csv")
+write.csv(DATA,"Table_Fig3A.csv")
 p1=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
   ggtitle("No preexisting WASH conditions")+
   scale_fill_manual(guide="none",values=c("#117733", "#44AA99","#88CCEE","#DDCC77","#CC6677","#AA4499"))+
@@ -146,7 +146,7 @@ p1=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
 p1
 
 DATA=rel_rel_risks("Bprevalences_2prev_with_var.RDS",color="water pathway")
-# write.csv(DATA,"Table_Fig3B.csv")
+write.csv(DATA,"Table_Fig3B.csv")
 p2=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
   ggtitle("Double baseline disease prevalence")+
   scale_fill_manual(guide="none",values=c("#117733", "#44AA99","#88CCEE","#DDCC77","#CC6677","#AA4499"))+
@@ -161,7 +161,7 @@ p2=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
 p2
 
 DATA=rel_rel_risks("Bprevalences_full_adherence_with_var.RDS",color="water pathway")
-# write.csv(DATA,"Table_Fig3C.csv")
+write.csv(DATA,"Table_Fig3C.csv")
 p3=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
   ggtitle("Full compliance")+
   scale_fill_manual(guide="none",values=c("#117733", "#44AA99","#88CCEE","#DDCC77","#CC6677","#AA4499"))+
@@ -176,7 +176,7 @@ p3=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
 p3
 
 DATA=rel_rel_risks("Bprevalences_50_less_other_with_var.RDS",color="water pathway")
-# write.csv(DATA,"Table_Fig3D.csv")
+write.csv(DATA,"Table_Fig3D.csv")
 p4=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
   ggtitle("Half of other pathway transmission can be intervened on")+
   scale_fill_manual(guide="none",values=c("#117733", "#44AA99","#88CCEE","#DDCC77","#CC6677","#AA4499"))+
@@ -191,7 +191,7 @@ p4=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
 p4
 
 DATA=rel_rel_risks("Bprevalences_100efficacy_W_with_var.RDS",color="water pathway")
-# write.csv(DATA,"Table_Fig3E.csv")
+write.csv(DATA,"Table_Fig3E.csv")
 p5=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
   ggtitle("Double efficacy of water chlorination")+
   scale_fill_manual(guide="none",values=c("#117733", "#44AA99","#88CCEE","#DDCC77","#CC6677","#AA4499"))+
@@ -206,7 +206,7 @@ p5=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
 p5
 
 DATA=rel_rel_risks("Bprevalences_100efficacy_S_with_var.RDS",color="water pathway")
-# write.csv(DATA,"Table_Fig3F.csv")
+write.csv(DATA,"Table_Fig3F.csv")
 p6=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
   ggtitle("Double efficacy of a latrine water seal")+
   scale_fill_manual(guide="none",values=c("#117733", "#44AA99","#88CCEE","#DDCC77","#CC6677","#AA4499"))+
@@ -221,9 +221,9 @@ p6=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
 p6
 
 DATA=rel_rel_risks("Bprevalences_100efficacy_H_with_var.RDS",color="water pathway")
-# write.csv(DATA,"Table_Fig3G.csv")
+write.csv(DATA,"Table_Fig3G.csv")
 p7=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
-  ggtitle("Double efficacy of the handwashing")+
+  ggtitle("Double efficacy of handwashing with soap and water")+
   scale_fill_manual(guide="none",values=c("#117733", "#44AA99","#88CCEE","#DDCC77","#CC6677","#AA4499"))+
   geom_violin(adjust=2.5,scale="width",color="black",lwd=0.1)+
   stat_summary(fun="median",geom="point",size=0.5,pch=21,aes(bg=Arm))+
@@ -236,9 +236,9 @@ p7=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
 p7
 
 DATA=rel_rel_risks("Bprevalences_100efficacy_N_with_var.RDS",color="water pathway")
-# write.csv(DATA,"Table_Fig3H.csv")
+write.csv(DATA,"Table_Fig3H.csv")
 p8=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
-  ggtitle("Double efficacy of the nutrition supplementation")+
+  ggtitle("Double efficacy of nutrition supplementation")+
   scale_fill_manual(guide="none",values=c("#117733", "#44AA99","#88CCEE","#DDCC77","#CC6677","#AA4499"))+
   geom_violin(adjust=2.5,scale="width",color="black",lwd=0.1)+
   stat_summary(fun="median",geom="point",size=0.5,pch=21,aes(bg=Arm))+
@@ -272,7 +272,7 @@ p1=ggplot(DATA, aes(x=Arm, y=y,fill=Arm))+
 p1
 
 DATA=rel_rel_risks("Bprevalences_coverage20_with_var.RDS",color="water pathway")
-# write.csv(DATA,"Table_Fig4B.csv")
+write.csv(DATA,"Table_Fig4B.csv")
 p2=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
   ggtitle("by of the strength of the water pathway")+
   scale_fill_manual(guide="none",values=c("#1dc956","#169c43","#117733", "#0d5926", "#0a431d",
@@ -293,7 +293,7 @@ p2=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
 p2
 
 DATA=rel_rel_risks("Bprevalences_coverage20_with_var.RDS",color="fomite pathway")
-# write.csv(DATA,"Table_Fig4C.csv")
+write.csv(DATA,"Table_Fig4C.csv")
 p3=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
   ggtitle("by of the strength of the fomite pathway")+
   scale_fill_manual(guide="none",values=c("#1dc956","#169c43","#117733", "#0d5926", "#0a431d",
@@ -313,7 +313,7 @@ p3=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
 p3
 
 DATA=rel_rel_risks("Bprevalences_coverage20_with_var.RDS",color="other pathway")
-# write.csv(DATA,"Table_Fig4D.csv")
+write.csv(DATA,"Table_Fig4D.csv")
 p4=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
   ggtitle("by of the strength of all other pathways")+
   scale_fill_manual(guide="none",values=c("#1dc956","#169c43","#117733", "#0d5926", "#0a431d",
@@ -333,7 +333,7 @@ p4=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
 p4
 
 DATA=rel_rel_risks("Bprevalences_coverage20_with_var.RDS",color="water")
-# write.csv(DATA,"Table_Fig4E.csv")
+write.csv(DATA,"Table_Fig4E.csv")
 p5=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
   ggtitle("by of the efficacy of the water intervention")+
   scale_fill_manual(guide="none",values=c("#1dc956","#169c43","#117733", "#0d5926", "#0a431d",
@@ -353,7 +353,7 @@ p5=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
 p5
 
 DATA=rel_rel_risks("Bprevalences_coverage20_with_var.RDS",color="sanitation")
-# write.csv(DATA,"Table_Fig4F.csv")
+write.csv(DATA,"Table_Fig4F.csv")
 p6=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
   ggtitle("by of the efficacy of the sanitation intervention")+
   scale_fill_manual(guide="none",values=c("#1dc956","#169c43","#117733", "#0d5926", "#0a431d",
@@ -373,7 +373,7 @@ p6=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
 p6
 
 DATA=rel_rel_risks("Bprevalences_coverage20_with_var.RDS",color="hygiene")
-# write.csv(DATA,"Table_Fig4G.csv")
+write.csv(DATA,"Table_Fig4G.csv")
 p7=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
   ggtitle("by of the efficacy of the hygiene intervention")+
   scale_fill_manual(guide="none",values=c("#1dc956","#169c43","#117733", "#0d5926", "#0a431d",
@@ -393,7 +393,7 @@ p7=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
 p7
 
 DATA=rel_rel_risks("Bprevalences_coverage20_with_var.RDS",color="nutrition")
-# write.csv(DATA,"Table_Fig4H.csv")
+write.csv(DATA,"Table_Fig4H.csv")
 p8=ggplot(DATA, aes(x=Arm, y=y,fill=QuantileArm,Group=Arm))+
   ggtitle("by of the efficacy of the nutrition intervention")+
   scale_fill_manual(guide="none",values=c("#1dc956","#169c43","#117733", "#0d5926", "#0a431d",
@@ -511,7 +511,7 @@ DATA$y=as.numeric(DATA$y)
 DATA$Intervention=factor(DATA$Intervention)
 
 DATA_W = DATA[DATA$Intervention =="W",]
-# write.csv(DATA_W,"Table_Fig5A.csv")
+write.csv(DATA_W,"Table_Fig5A.csv")
 p1 = ggplot(DATA_W, aes(x=factor(x),y=y,fill=Completeness))+
   geom_violin(adjust=2.5,scale="width",color="black",lwd=0.1,alpha=0.75)+
   stat_summary(fun="median",geom="line",linewidth=1.25,aes(group=Completeness),position = position_dodge(width=0.9))+
@@ -535,7 +535,7 @@ median(DATA_W[DATA_W$x==50 & DATA_W$Completeness=="Lowest","y"])
 
 
 DATA_S = DATA[DATA$Intervention =="S",]
-# write.csv(DATA_S,"Table_Fig5B.csv")
+write.csv(DATA_S,"Table_Fig5B.csv")
 p2 = ggplot(DATA_S, aes(x=factor(x),y=y,fill=Completeness))+
   geom_violin(adjust=2.5,scale="width",color="black",lwd=0.1,alpha=0.75)+
   stat_summary(fun="median",geom="line",linewidth=1.25,aes(group=Completeness),position = position_dodge(width=0.9))+
@@ -556,7 +556,7 @@ p2 = ggplot(DATA_S, aes(x=factor(x),y=y,fill=Completeness))+
 p2
 
 DATA_H = DATA[DATA$Intervention =="H",]
-# write.csv(DATA_H,"Table_Fig5C.csv")
+write.csv(DATA_H,"Table_Fig5C.csv")
 p3 = ggplot(DATA_H, aes(x=factor(x),y=y,fill=Completeness))+
   geom_violin(adjust=2.5,scale="width",color="black",lwd=0.1,alpha=0.75)+
   stat_summary(fun="median",geom="line",linewidth=1.25,aes(group=Completeness),position = position_dodge(width=0.9))+
@@ -580,7 +580,7 @@ median(DATA_H[DATA_H$x==50 & DATA_H$Completeness=="Lowest","y"])
 
 
 DATA_WSH = DATA[DATA$Intervention =="WSH",]
-# write.csv(DATA_WSH,"Table_Fig5D.csv")
+write.csv(DATA_WSH,"Table_Fig5D.csv")
 p4 = ggplot(DATA_WSH, aes(x=factor(x),y=y,fill=Completeness))+
   geom_violin(adjust=2.5,scale="width",color="black",lwd=0.1,alpha=0.75)+
   stat_summary(fun="median",geom="line",linewidth=1.25,aes(group=Completeness),position = position_dodge(width=0.9))+
